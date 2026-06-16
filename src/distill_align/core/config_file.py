@@ -5,9 +5,7 @@ Loads project settings from distill-align.yaml or distill-align.toml.
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
 
-import yaml
 from loguru import logger
 from pydantic import BaseModel, Field
 
@@ -26,7 +24,7 @@ class SourceConfig(BaseModel):
     path: str
     type: str = "auto"  # auto, markdown, code, pdf, docx, html, jupyter, json, csv, text
     recursive: bool = True
-    patterns: List[str] = Field(default_factory=list)
+    patterns: list[str] = Field(default_factory=list)
 
 
 class IngestionFileConfig(BaseModel):
@@ -36,7 +34,7 @@ class IngestionFileConfig(BaseModel):
     chunk_overlap: int = 200
     respect_headers: bool = True
     max_chunk_tokens: int = 4000
-    sources: List[SourceConfig] = Field(default_factory=list)
+    sources: list[SourceConfig] = Field(default_factory=list)
 
 
 class SynthesisFileConfig(BaseModel):
@@ -44,8 +42,8 @@ class SynthesisFileConfig(BaseModel):
 
     provider: str = "openai"
     model: str = "gpt-4o"
-    base_url: Optional[str] = None
-    api_key: Optional[str] = None
+    base_url: str | None = None
+    api_key: str | None = None
     max_concurrency: int = 5
     max_rpm: int = 60
     temperature: float = 0.7
@@ -71,7 +69,7 @@ class UnslothFileConfig(BaseModel):
 class ExportFileConfig(BaseModel):
     """Export configuration from file."""
 
-    formats: List[str] = Field(default_factory=lambda: ["sharegpt"])
+    formats: list[str] = Field(default_factory=lambda: ["sharegpt"])
     output_dir: str = "./output"
     generate_unsloth_script: bool = True
     unsloth: UnslothFileConfig = Field(default_factory=UnslothFileConfig)
@@ -147,7 +145,7 @@ cache_dir: .cache
 """
 
 
-def find_config_file(start_dir: str | Path = ".") -> Optional[Path]:
+def find_config_file(start_dir: str | Path = ".") -> Path | None:
     """
     Search for a config file starting from the given directory.
 
@@ -180,7 +178,7 @@ def find_config_file(start_dir: str | Path = ".") -> Optional[Path]:
     return None
 
 
-def load_config(config_path: Optional[str | Path] = None) -> DistillAlignConfig:
+def load_config(config_path: str | Path | None = None) -> DistillAlignConfig:
     """
     Load configuration from file.
 
@@ -202,15 +200,23 @@ def load_config(config_path: Optional[str | Path] = None) -> DistillAlignConfig:
 
     logger.info(f"Loading config from {path}")
 
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, encoding="utf-8") as f:
         if path.suffix == ".toml":
             try:
                 import tomllib
+
                 data = tomllib.load(f)
             except ImportError:
                 import tomli
+
                 data = tomli.load(f)
         else:
+            try:
+                import yaml
+            except ImportError:
+                raise ImportError(
+                    "PyYAML is required for YAML config files. Install with: pip install pyyaml"
+                ) from None
             data = yaml.safe_load(f)
 
     if data is None:
@@ -232,6 +238,11 @@ def save_config(config: DistillAlignConfig, path: str | Path = "distill-align.ya
     """
     output_path = Path(path)
     data = config.model_dump()
+
+    try:
+        import yaml
+    except ImportError:
+        raise ImportError("PyYAML is required for saving YAML config files. Install with: pip install pyyaml") from None
 
     with open(output_path, "w", encoding="utf-8") as f:
         yaml.dump(data, f, default_flow_style=False, sort_keys=False, allow_unicode=True)

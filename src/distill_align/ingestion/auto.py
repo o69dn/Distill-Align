@@ -5,29 +5,27 @@ Scans directories, detects file types, and routes to the correct loader automati
 """
 
 from pathlib import Path
-from typing import Dict, List, Optional, Type
 
 from loguru import logger
 
-from ..core.schemas import DataChunk, IngestionConfig, SourceMetadata
 from ..core.exceptions import IngestionError, UnsupportedFormatError
+from ..core.schemas import DataChunk, IngestionConfig
+from .chunkers.base import BaseChunker
+from .chunkers.code import CodeChunker
+from .chunkers.markdown import MarkdownChunker
 from .loaders.base import BaseLoader
-from .loaders.markdown import MarkdownLoader
-from .loaders.pdf import PDFLoader
 from .loaders.code import CodeLoader
+from .loaders.csv_loader import CSVLoader
 from .loaders.docx import DOCXLoader
 from .loaders.html import HTMLLoader
-from .loaders.jupyter import JupyterLoader
 from .loaders.json_loader import JSONLoader
-from .loaders.csv_loader import CSVLoader
+from .loaders.jupyter import JupyterLoader
+from .loaders.markdown import MarkdownLoader
+from .loaders.pdf import PDFLoader
 from .loaders.text import TextLoader
-from .chunkers.base import BaseChunker
-from .chunkers.markdown import MarkdownChunker
-from .chunkers.code import CodeChunker
-
 
 # Extension to loader mapping
-EXTENSION_LOADER_MAP: Dict[str, Type[BaseLoader]] = {
+EXTENSION_LOADER_MAP: dict[str, type[BaseLoader]] = {
     # Markdown
     ".md": MarkdownLoader,
     ".markdown": MarkdownLoader,
@@ -95,7 +93,7 @@ class AutoIngestionPipeline:
     to the appropriate loader without manual configuration.
     """
 
-    def __init__(self, config: Optional[IngestionConfig] = None):
+    def __init__(self, config: IngestionConfig | None = None):
         """
         Initialize the auto-detection pipeline.
 
@@ -103,8 +101,8 @@ class AutoIngestionPipeline:
             config: Optional ingestion configuration.
         """
         self.config = config or IngestionConfig()
-        self._chunkers: Dict[str, BaseChunker] = {}
-        self._loaders: Dict[str, BaseLoader] = {}
+        self._chunkers: dict[str, BaseChunker] = {}
+        self._loaders: dict[str, BaseLoader] = {}
 
     def get_loader(self, file_path: Path) -> BaseLoader:
         """
@@ -128,7 +126,7 @@ class AutoIngestionPipeline:
         # Try text loader as fallback for unknown extensions
         try:
             # Quick check if it's a text file
-            with open(file_path, "r", encoding="utf-8") as f:
+            with open(file_path, encoding="utf-8") as f:
                 f.read(1024)
             return TextLoader(file_path)
         except (UnicodeDecodeError, Exception):
@@ -174,8 +172,8 @@ class AutoIngestionPipeline:
         self,
         directory: str | Path,
         recursive: bool = True,
-        ignore_patterns: Optional[List[str]] = None,
-    ) -> List[Path]:
+        ignore_patterns: list[str] | None = None,
+    ) -> list[Path]:
         """
         Scan a directory for supported files.
 
@@ -191,12 +189,24 @@ class AutoIngestionPipeline:
         if not directory.is_dir():
             raise IngestionError(f"Not a directory: {directory}")
 
-        ignore = set(ignore_patterns or [
-            "__pycache__", ".git", ".svn", "node_modules",
-            ".venv", "venv", "env", ".env",
-            ".cache", ".distill-align",
-            "*.pyc", "*.pyo", "*.class",
-        ])
+        ignore = set(
+            ignore_patterns
+            or [
+                "__pycache__",
+                ".git",
+                ".svn",
+                "node_modules",
+                ".venv",
+                "venv",
+                "env",
+                ".env",
+                ".cache",
+                ".distill-align",
+                "*.pyc",
+                "*.pyo",
+                "*.class",
+            ]
+        )
 
         supported_extensions = set(EXTENSION_LOADER_MAP.keys())
         files = []
@@ -219,7 +229,7 @@ class AutoIngestionPipeline:
         logger.info(f"Found {len(files)} supported files in {directory}")
         return sorted(files)
 
-    def ingest_file(self, file_path: str | Path) -> List[DataChunk]:
+    def ingest_file(self, file_path: str | Path) -> list[DataChunk]:
         """
         Ingest a single file.
 
@@ -243,15 +253,15 @@ class AutoIngestionPipeline:
 
         except Exception as e:
             logger.error(f"Failed to ingest {file_path}: {e}")
-            raise IngestionError(f"Failed to ingest {file_path}: {e}")
+            raise IngestionError(f"Failed to ingest {file_path}: {e}") from e
 
     def ingest_directory(
         self,
         directory: str | Path,
         recursive: bool = True,
-        ignore_patterns: Optional[List[str]] = None,
+        ignore_patterns: list[str] | None = None,
         progress_callback=None,
-    ) -> List[DataChunk]:
+    ) -> list[DataChunk]:
         """
         Ingest all supported files in a directory.
 
@@ -285,6 +295,6 @@ class AutoIngestionPipeline:
         logger.info(f"Ingestion complete: {len(all_chunks)} chunks from {len(files) - failed}/{len(files)} files")
         return all_chunks
 
-    def get_supported_extensions(self) -> List[str]:
+    def get_supported_extensions(self) -> list[str]:
         """Get list of all supported file extensions."""
         return sorted(set(EXTENSION_LOADER_MAP.keys()))

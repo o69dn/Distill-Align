@@ -6,13 +6,12 @@ Exports conversations in ChatML format used by Qwen, OpenHermes, and others.
 
 import json
 from pathlib import Path
-from typing import List
 
 from loguru import logger
 
-from .base import BaseFormatter
-from ...core.schemas import ConversationSchema
 from ...core.exceptions import FormatError
+from ...core.schemas import ConversationSchema
+from .base import BaseFormatter
 
 
 class ChatMLFormatter(BaseFormatter):
@@ -28,7 +27,7 @@ class ChatMLFormatter(BaseFormatter):
 
     def format(
         self,
-        conversations: List[ConversationSchema],
+        conversations: list[ConversationSchema],
         filename: str = "dataset_chatml.json",
     ) -> Path:
         """
@@ -60,14 +59,13 @@ class ChatMLFormatter(BaseFormatter):
         try:
             formatted = []
             for conv in conversations:
-                messages = [
-                    {"role": self.ROLE_MAP.get(t.role, "assistant"), "content": t.content}
-                    for t in conv.turns
-                ]
-                formatted.append({
-                    "id": conv.id,
-                    "messages": messages,
-                })
+                messages = [{"role": self.ROLE_MAP.get(t.role, "assistant"), "content": t.content} for t in conv.turns]
+                formatted.append(
+                    {
+                        "id": conv.id,
+                        "messages": messages,
+                    }
+                )
 
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(formatted, f, indent=2, ensure_ascii=False)
@@ -76,9 +74,9 @@ class ChatMLFormatter(BaseFormatter):
             return output_path
 
         except Exception as e:
-            raise FormatError(f"Failed to format ChatML: {e}")
+            raise FormatError(f"Failed to format ChatML: {e}") from e
 
-    def validate(self, data: List[dict]) -> bool:
+    def validate(self, data: list[dict]) -> bool:
         """Validate ChatML format data."""
         if not isinstance(data, list):
             return False

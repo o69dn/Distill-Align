@@ -5,11 +5,9 @@ Splits Markdown content based on header structure rather than static token lengt
 """
 
 import re
-from typing import List, Tuple
 
-from .base import BaseChunker
 from ...core.schemas import DataChunk, SourceMetadata
-from ...core.exceptions import ChunkerError
+from .base import BaseChunker
 
 
 class MarkdownChunker(BaseChunker):
@@ -38,7 +36,7 @@ class MarkdownChunker(BaseChunker):
         self.respect_headers = respect_headers
         self.max_header_level = min(max(max_header_level, 1), 6)
 
-    def chunk(self, content: str, metadata: SourceMetadata) -> List[DataChunk]:
+    def chunk(self, content: str, metadata: SourceMetadata) -> list[DataChunk]:
         """
         Split Markdown content into chunks.
 
@@ -57,7 +55,7 @@ class MarkdownChunker(BaseChunker):
         else:
             return self._chunk_by_size(content, metadata)
 
-    def _chunk_by_headers(self, content: str, metadata: SourceMetadata) -> List[DataChunk]:
+    def _chunk_by_headers(self, content: str, metadata: SourceMetadata) -> list[DataChunk]:
         """
         Split content by Markdown headers.
 
@@ -78,7 +76,9 @@ class MarkdownChunker(BaseChunker):
             # If section is small enough, create a single chunk
             if len(section_content) <= self.chunk_size:
                 updated_metadata = metadata.model_copy(
-                    update={"section_headers": metadata.section_headers + [header] if header else metadata.section_headers}
+                    update={
+                        "section_headers": metadata.section_headers + [header] if header else metadata.section_headers
+                    }
                 )
                 chunk = DataChunk(content=section_content.strip(), metadata=updated_metadata)
                 chunks.append(chunk)
@@ -93,7 +93,7 @@ class MarkdownChunker(BaseChunker):
 
         return chunks
 
-    def _split_by_headers(self, content: str) -> List[Tuple[str, str]]:
+    def _split_by_headers(self, content: str) -> list[tuple[str, str]]:
         """
         Split content into (header, content) pairs.
 
@@ -106,7 +106,6 @@ class MarkdownChunker(BaseChunker):
         sections = []
         current_header = ""
         current_content = []
-        current_level = 0
 
         for line in content.split("\n"):
             match = self.HEADER_PATTERN.match(line)
@@ -122,7 +121,6 @@ class MarkdownChunker(BaseChunker):
 
                     current_header = header_text
                     current_content = []
-                    current_level = level
                     continue
 
             current_content.append(line)
@@ -133,7 +131,7 @@ class MarkdownChunker(BaseChunker):
 
         return sections
 
-    def _chunk_by_size(self, content: str, metadata: SourceMetadata) -> List[DataChunk]:
+    def _chunk_by_size(self, content: str, metadata: SourceMetadata) -> list[DataChunk]:
         """
         Split content by size with overlap.
 

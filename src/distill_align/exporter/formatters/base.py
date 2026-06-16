@@ -6,10 +6,9 @@ All formatters should inherit from this base class.
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List, Any
+from typing import Any
 
 from ...core.schemas import ConversationSchema
-from ...core.exceptions import FormatError
 
 
 class BaseFormatter(ABC):
@@ -26,7 +25,7 @@ class BaseFormatter(ABC):
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
     @abstractmethod
-    def format(self, conversations: List[ConversationSchema], filename: str) -> Path:
+    def format(self, conversations: list[ConversationSchema], filename: str) -> Path:
         """
         Format conversations into the target format.
 

@@ -4,12 +4,9 @@ Generic text file loader.
 Handles loading and metadata extraction from plain text files.
 """
 
-from pathlib import Path
-from typing import List, Optional
-
-from .base import BaseLoader
-from ...core.schemas import SourceMetadata
 from ...core.exceptions import LoaderError
+from ...core.schemas import SourceMetadata
+from .base import BaseLoader
 
 
 class TextLoader(BaseLoader):
@@ -34,9 +31,9 @@ class TextLoader(BaseLoader):
             try:
                 return self.file_path.read_text(encoding="latin-1")
             except Exception as e:
-                raise LoaderError(f"Failed to read text file with fallback encoding: {e}")
+                raise LoaderError(f"Failed to read text file with fallback encoding: {e}") from e
         except Exception as e:
-            raise LoaderError(f"Failed to read text file: {e}")
+            raise LoaderError(f"Failed to read text file: {e}") from e
 
     def extract_metadata(self) -> SourceMetadata:
         """
@@ -62,4 +59,4 @@ class TextLoader(BaseLoader):
                 },
             )
         except Exception as e:
-            raise LoaderError(f"Failed to extract text metadata: {e}")
+            raise LoaderError(f"Failed to extract text metadata: {e}") from e

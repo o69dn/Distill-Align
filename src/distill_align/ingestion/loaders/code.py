@@ -5,12 +5,10 @@ Handles loading and metadata extraction from source code files.
 """
 
 from pathlib import Path
-from typing import List, Optional
 
-from .base import BaseLoader
-from ...core.schemas import DataChunk, SourceMetadata
 from ...core.exceptions import LoaderError
-
+from ...core.schemas import SourceMetadata
+from .base import BaseLoader
 
 # Language detection by extension
 EXTENSION_TO_LANGUAGE = {
@@ -49,7 +47,7 @@ class CodeLoader(BaseLoader):
 
     SUPPORTED_EXTENSIONS = set(EXTENSION_TO_LANGUAGE.keys())
 
-    def __init__(self, file_path: str | Path, language: Optional[str] = None):
+    def __init__(self, file_path: str | Path, language: str | None = None):
         """
         Initialize the code loader.
 
@@ -83,7 +81,7 @@ class CodeLoader(BaseLoader):
         try:
             return self.file_path.read_text(encoding="utf-8")
         except Exception as e:
-            raise LoaderError(f"Failed to read code file: {e}")
+            raise LoaderError(f"Failed to read code file: {e}") from e
 
     def extract_metadata(self) -> SourceMetadata:
         """
@@ -110,7 +108,7 @@ class CodeLoader(BaseLoader):
             },
         )
 
-    def _extract_definitions(self, content: str) -> tuple[List[str], List[str]]:
+    def _extract_definitions(self, content: str) -> tuple[list[str], list[str]]:
         """
         Extract function and class definitions from code.
 

@@ -6,23 +6,21 @@ Handles the full ingestion workflow: loading files, chunking content, and output
 
 import asyncio
 from pathlib import Path
-from typing import List, Optional, Dict, Any
 
 from loguru import logger
 
-from ..core.schemas import DataChunk, IngestionConfig
 from ..core.exceptions import IngestionError, UnsupportedFormatError
+from ..core.schemas import DataChunk, IngestionConfig
+from .chunkers.base import BaseChunker
+from .chunkers.code import CodeChunker
+from .chunkers.markdown import MarkdownChunker
 from .loaders.base import BaseLoader
+from .loaders.code import CodeLoader
 from .loaders.markdown import MarkdownLoader
 from .loaders.pdf import PDFLoader
-from .loaders.code import CodeLoader
-from .chunkers.base import BaseChunker
-from .chunkers.markdown import MarkdownChunker
-from .chunkers.code import CodeChunker
-
 
 # Map file extensions to loader classes
-LOADER_MAP: Dict[str, type[BaseLoader]] = {
+LOADER_MAP: dict[str, type[BaseLoader]] = {
     ".md": MarkdownLoader,
     ".markdown": MarkdownLoader,
     ".mdown": MarkdownLoader,
@@ -38,7 +36,7 @@ for ext in CodeLoader.SUPPORTED_EXTENSIONS if hasattr(CodeLoader, "SUPPORTED_EXT
 class IngestionPipeline:
     """Orchestrates the ingestion of files into DataChunks."""
 
-    def __init__(self, config: Optional[IngestionConfig] = None):
+    def __init__(self, config: IngestionConfig | None = None):
         """
         Initialize the ingestion pipeline.
 
@@ -46,7 +44,7 @@ class IngestionPipeline:
             config: Optional ingestion configuration. Uses defaults if not provided.
         """
         self.config = config or IngestionConfig()
-        self._chunkers: Dict[str, BaseChunker] = {}
+        self._chunkers: dict[str, BaseChunker] = {}
 
     def _get_loader(self, file_path: Path) -> BaseLoader:
         """
@@ -108,7 +106,7 @@ class IngestionPipeline:
         self._chunkers[source_type] = chunker
         return chunker
 
-    def ingest_file(self, file_path: str | Path) -> List[DataChunk]:
+    def ingest_file(self, file_path: str | Path) -> list[DataChunk]:
         """
         Ingest a single file.
 
@@ -135,14 +133,14 @@ class IngestionPipeline:
 
         except Exception as e:
             logger.error(f"Failed to ingest {file_path}: {e}")
-            raise IngestionError(f"Failed to ingest {file_path}: {e}")
+            raise IngestionError(f"Failed to ingest {file_path}: {e}") from e
 
     def ingest_directory(
         self,
         directory: str | Path,
         recursive: bool = True,
-        file_patterns: Optional[List[str]] = None,
-    ) -> List[DataChunk]:
+        file_patterns: list[str] | None = None,
+    ) -> list[DataChunk]:
         """
         Ingest all supported files in a directory.
 
@@ -163,10 +161,10 @@ class IngestionPipeline:
         # Collect files
         files = []
         if recursive:
-            for pattern in (file_patterns or ["*"]):
+            for pattern in file_patterns or ["*"]:
                 files.extend(directory.rglob(pattern))
         else:
-            for pattern in (file_patterns or ["*"]):
+            for pattern in file_patterns or ["*"]:
                 files.extend(directory.glob(pattern))
 
         # Filter to supported extensions
@@ -188,7 +186,7 @@ class IngestionPipeline:
         logger.info(f"Total chunks created: {len(all_chunks)}")
         return all_chunks
 
-    async def ingest_file_async(self, file_path: str | Path) -> List[DataChunk]:
+    async def ingest_file_async(self, file_path: str | Path) -> list[DataChunk]:
         """
         Asynchronously ingest a single file.
 
@@ -206,9 +204,9 @@ class IngestionPipeline:
         self,
         directory: str | Path,
         recursive: bool = True,
-        file_patterns: Optional[List[str]] = None,
+        file_patterns: list[str] | None = None,
         max_concurrency: int = 5,
-    ) -> List[DataChunk]:
+    ) -> list[DataChunk]:
         """
         Asynchronously ingest all files in a directory.
 
@@ -227,10 +225,10 @@ class IngestionPipeline:
         # Collect files
         files = []
         if recursive:
-            for pattern in (file_patterns or ["*"]):
+            for pattern in file_patterns or ["*"]:
                 files.extend(directory.rglob(pattern))
         else:
-            for pattern in (file_patterns or ["*"]):
+            for pattern in file_patterns or ["*"]:
                 files.extend(directory.glob(pattern))
 
         # Filter to supported extensions
@@ -242,7 +240,7 @@ class IngestionPipeline:
         # Create semaphore for concurrency control
         semaphore = asyncio.Semaphore(max_concurrency)
 
-        async def ingest_with_semaphore(file_path: Path) -> List[DataChunk]:
+        async def ingest_with_semaphore(file_path: Path) -> list[DataChunk]:
             async with semaphore:
                 return await self.ingest_file_async(file_path)
 
@@ -252,7 +250,7 @@ class IngestionPipeline:
 
         # Collect results
         all_chunks = []
-        for file_path, result in zip(files, results):
+        for file_path, result in zip(files, results, strict=False):
             if isinstance(result, Exception):
                 logger.warning(f"Failed to ingest {file_path}: {result}")
             else:

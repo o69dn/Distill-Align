@@ -5,11 +5,9 @@ Splits code content based on function and class definitions.
 """
 
 import re
-from typing import List, Tuple, Optional
 
-from .base import BaseChunker
 from ...core.schemas import DataChunk, SourceMetadata
-from ...core.exceptions import ChunkerError
+from .base import BaseChunker
 
 
 class CodeChunker(BaseChunker):
@@ -41,7 +39,7 @@ class CodeChunker(BaseChunker):
         self,
         chunk_size: int = 1000,
         chunk_overlap: int = 200,
-        language: Optional[str] = None,
+        language: str | None = None,
         include_context: bool = True,
     ):
         """
@@ -57,7 +55,7 @@ class CodeChunker(BaseChunker):
         self.language = language
         self.include_context = include_context
 
-    def chunk(self, content: str, metadata: SourceMetadata) -> List[DataChunk]:
+    def chunk(self, content: str, metadata: SourceMetadata) -> list[DataChunk]:
         """
         Split code content into chunks.
 
@@ -97,9 +95,7 @@ class CodeChunker(BaseChunker):
         ext = "." + filename.rsplit(".", 1)[-1] if "." in filename else ""
         return EXTENSION_TO_LANGUAGE.get(ext, "unknown")
 
-    def _chunk_by_definitions(
-        self, content: str, metadata: SourceMetadata, language: str
-    ) -> List[DataChunk]:
+    def _chunk_by_definitions(self, content: str, metadata: SourceMetadata, language: str) -> list[DataChunk]:
         """
         Split code by function/class definitions.
 
@@ -185,7 +181,7 @@ class CodeChunker(BaseChunker):
 
         return "unknown"
 
-    def _chunk_by_size(self, content: str, metadata: SourceMetadata) -> List[DataChunk]:
+    def _chunk_by_size(self, content: str, metadata: SourceMetadata) -> list[DataChunk]:
         """
         Split content by size with overlap.
 

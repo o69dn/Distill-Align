@@ -3,9 +3,6 @@ Unit tests for the new Phase 1-5 components.
 """
 
 import pytest
-import tempfile
-import time
-from pathlib import Path
 
 from distill_align.core.cache import CacheManager
 from distill_align.core.checkpoint import CheckpointManager, JobStatus
@@ -18,7 +15,6 @@ from distill_align.core.config_file import (
 from distill_align.exporter.splitter import DatasetSplitter
 from distill_align.exporter.validator import DatasetValidator
 from distill_align.synthesis.tokenizer import Tokenizer
-
 
 # =============================================================================
 # CacheManager Tests
@@ -173,6 +169,7 @@ class TestDatasetSplitter:
     @pytest.fixture
     def conversations(self):
         from distill_align.core.schemas import ConversationSchema, SynthesizedTurn
+
         return [
             ConversationSchema(
                 id=f"conv-{i}",
@@ -201,9 +198,7 @@ class TestDatasetSplitter:
 
     def test_stratified_split(self, conversations):
         splitter = DatasetSplitter(seed=42)
-        result = splitter.split(
-            conversations, 0.8, 0.1, 0.1, stratify_by="source_chunk_id"
-        )
+        result = splitter.split(conversations, 0.8, 0.1, 0.1, stratify_by="source_chunk_id")
         # Each source_chunk_id should have its items split proportionally
         assert result.total == 10
 
@@ -219,6 +214,7 @@ class TestDatasetValidator:
     @pytest.fixture
     def conversations(self):
         from distill_align.core.schemas import ConversationSchema, SynthesizedTurn
+
         return [
             ConversationSchema(
                 id=f"conv-{i}",

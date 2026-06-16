@@ -5,11 +5,10 @@ Handles loading and metadata extraction from PDF files.
 """
 
 from pathlib import Path
-from typing import List, Optional
 
-from .base import BaseLoader
-from ...core.schemas import DataChunk, SourceMetadata
 from ...core.exceptions import LoaderError
+from ...core.schemas import SourceMetadata
+from .base import BaseLoader
 
 
 class PDFLoader(BaseLoader):
@@ -17,7 +16,7 @@ class PDFLoader(BaseLoader):
 
     SUPPORTED_EXTENSIONS = {".pdf"}
 
-    def __init__(self, file_path: str | Path, password: Optional[str] = None):
+    def __init__(self, file_path: str | Path, password: str | None = None):
         """
         Initialize the PDF loader.
 
@@ -49,9 +48,9 @@ class PDFLoader(BaseLoader):
                     text_parts.append(page_text)
             return "\n\n".join(text_parts)
         except ImportError:
-            raise LoaderError("pypdf is required for PDF loading. Install with: pip install pypdf")
+            raise LoaderError("pypdf is required for PDF loading. Install with: pip install pypdf") from None
         except Exception as e:
-            raise LoaderError(f"Failed to read PDF file: {e}")
+            raise LoaderError(f"Failed to read PDF file: {e}") from e
 
     def extract_metadata(self) -> SourceMetadata:
         """
@@ -89,4 +88,4 @@ class PDFLoader(BaseLoader):
                 custom_tags={"format": "pdf"},
             )
         except Exception as e:
-            raise LoaderError(f"Failed to extract PDF metadata: {e}")
+            raise LoaderError(f"Failed to extract PDF metadata: {e}") from e

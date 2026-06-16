@@ -6,13 +6,12 @@ Exports in a flexible generic format that can be converted to most other formats
 
 import json
 from pathlib import Path
-from typing import List
 
 from loguru import logger
 
-from .base import BaseFormatter
-from ...core.schemas import ConversationSchema
 from ...core.exceptions import FormatError
+from ...core.schemas import ConversationSchema
+from .base import BaseFormatter
 
 
 class ConversationFormatter(BaseFormatter):
@@ -20,7 +19,7 @@ class ConversationFormatter(BaseFormatter):
 
     def format(
         self,
-        conversations: List[ConversationSchema],
+        conversations: list[ConversationSchema],
         filename: str = "dataset_conversation.json",
     ) -> Path:
         """
@@ -53,19 +52,18 @@ class ConversationFormatter(BaseFormatter):
         try:
             formatted = []
             for conv in conversations:
-                formatted.append({
-                    "id": conv.id,
-                    "source_chunk_id": conv.source_chunk_id,
-                    "turns": [
-                        {"role": t.role, "content": t.content}
-                        for t in conv.turns
-                    ],
-                    "reasoning_trace": conv.reasoning_trace,
-                    "metadata": {
-                        "turn_count": len(conv.turns),
-                        "confidence_score": conv.confidence_score,
-                    },
-                })
+                formatted.append(
+                    {
+                        "id": conv.id,
+                        "source_chunk_id": conv.source_chunk_id,
+                        "turns": [{"role": t.role, "content": t.content} for t in conv.turns],
+                        "reasoning_trace": conv.reasoning_trace,
+                        "metadata": {
+                            "turn_count": len(conv.turns),
+                            "confidence_score": conv.confidence_score,
+                        },
+                    }
+                )
 
             with open(output_path, "w", encoding="utf-8") as f:
                 json.dump(formatted, f, indent=2, ensure_ascii=False)
@@ -74,9 +72,9 @@ class ConversationFormatter(BaseFormatter):
             return output_path
 
         except Exception as e:
-            raise FormatError(f"Failed to format Conversation: {e}")
+            raise FormatError(f"Failed to format Conversation: {e}") from e
 
-    def validate(self, data: List[dict]) -> bool:
+    def validate(self, data: list[dict]) -> bool:
         """Validate generic conversation format data."""
         if not isinstance(data, list):
             return False

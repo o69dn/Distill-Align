@@ -6,11 +6,10 @@ Handles loading and metadata extraction from CSV files.
 
 import csv
 from pathlib import Path
-from typing import List, Optional
 
-from .base import BaseLoader
-from ...core.schemas import SourceMetadata
 from ...core.exceptions import LoaderError
+from ...core.schemas import SourceMetadata
+from .base import BaseLoader
 
 
 class CSVLoader(BaseLoader):
@@ -18,7 +17,7 @@ class CSVLoader(BaseLoader):
 
     SUPPORTED_EXTENSIONS = {".csv"}
 
-    def __init__(self, file_path: str | Path, delimiter: str = ",", text_column: Optional[str] = None):
+    def __init__(self, file_path: str | Path, delimiter: str = ",", text_column: str | None = None):
         """
         Initialize the CSV loader.
 
@@ -44,7 +43,7 @@ class CSVLoader(BaseLoader):
         try:
             parts = []
 
-            with open(self.file_path, "r", encoding="utf-8", newline="") as f:
+            with open(self.file_path, encoding="utf-8", newline="") as f:
                 reader = csv.DictReader(f, delimiter=self.delimiter)
 
                 if not reader.fieldnames:
@@ -70,7 +69,7 @@ class CSVLoader(BaseLoader):
         except LoaderError:
             raise
         except Exception as e:
-            raise LoaderError(f"Failed to read CSV file: {e}")
+            raise LoaderError(f"Failed to read CSV file: {e}") from e
 
     def extract_metadata(self) -> SourceMetadata:
         """
@@ -80,7 +79,7 @@ class CSVLoader(BaseLoader):
             SourceMetadata with file information.
         """
         try:
-            with open(self.file_path, "r", encoding="utf-8", newline="") as f:
+            with open(self.file_path, encoding="utf-8", newline="") as f:
                 reader = csv.reader(f, delimiter=self.delimiter)
                 headers = next(reader, [])
                 row_count = sum(1 for _ in reader)
@@ -99,4 +98,4 @@ class CSVLoader(BaseLoader):
                 },
             )
         except Exception as e:
-            raise LoaderError(f"Failed to extract CSV metadata: {e}")
+            raise LoaderError(f"Failed to extract CSV metadata: {e}") from e

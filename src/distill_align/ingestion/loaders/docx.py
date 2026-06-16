@@ -4,12 +4,9 @@ DOCX file loader.
 Handles loading and metadata extraction from Microsoft Word documents.
 """
 
-from pathlib import Path
-from typing import List, Optional
-
-from .base import BaseLoader
-from ...core.schemas import SourceMetadata
 from ...core.exceptions import LoaderError
+from ...core.schemas import SourceMetadata
+from .base import BaseLoader
 
 
 class DOCXLoader(BaseLoader):
@@ -48,9 +45,11 @@ class DOCXLoader(BaseLoader):
             return "\n\n".join(paragraphs)
 
         except ImportError:
-            raise LoaderError("python-docx is required for DOCX loading. Install with: pip install python-docx")
+            raise LoaderError(
+                "python-docx is required for DOCX loading. Install with: pip install python-docx"
+            ) from None
         except Exception as e:
-            raise LoaderError(f"Failed to read DOCX file: {e}")
+            raise LoaderError(f"Failed to read DOCX file: {e}") from e
 
     def extract_metadata(self) -> SourceMetadata:
         """
@@ -90,4 +89,4 @@ class DOCXLoader(BaseLoader):
                 custom_tags={"format": "docx"},
             )
         except Exception as e:
-            raise LoaderError(f"Failed to extract DOCX metadata: {e}")
+            raise LoaderError(f"Failed to extract DOCX metadata: {e}") from e

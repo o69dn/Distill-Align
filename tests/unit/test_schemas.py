@@ -3,18 +3,17 @@ Unit tests for core schemas.
 """
 
 import pytest
-from pathlib import Path
 
 from distill_align.core.schemas import (
-    SourceMetadata,
-    DataChunk,
-    SynthesizedTurn,
-    ConversationSchema,
-    ShareGPTMessage,
     AlpacaEntry,
-    IngestionConfig,
-    SynthesisConfig,
+    ConversationSchema,
+    DataChunk,
     ExportConfig,
+    IngestionConfig,
+    ShareGPTMessage,
+    SourceMetadata,
+    SynthesisConfig,
+    SynthesizedTurn,
 )
 
 
@@ -83,7 +82,7 @@ class TestSynthesizedTurn:
         assert turn.content == "Hello!"
 
     def test_invalid_role(self):
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, TypeError)):
             SynthesizedTurn(role="invalid", content="Hello!")
 
 

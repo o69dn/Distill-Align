@@ -5,10 +5,9 @@ All chunkers should inherit from this base class.
 """
 
 from abc import ABC, abstractmethod
-from typing import List
 
-from ...core.schemas import DataChunk, SourceMetadata
 from ...core.exceptions import ChunkerError
+from ...core.schemas import DataChunk, SourceMetadata
 
 
 class BaseChunker(ABC):
@@ -33,7 +32,7 @@ class BaseChunker(ABC):
         self.chunk_overlap = chunk_overlap
 
     @abstractmethod
-    def chunk(self, content: str, metadata: SourceMetadata) -> List[DataChunk]:
+    def chunk(self, content: str, metadata: SourceMetadata) -> list[DataChunk]:
         """
         Split content into chunks.
 

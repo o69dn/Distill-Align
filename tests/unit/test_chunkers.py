@@ -3,11 +3,11 @@ Unit tests for ingestion module.
 """
 
 import pytest
-from pathlib import Path
 
+from distill_align.core.exceptions import ChunkerError
 from distill_align.core.schemas import DataChunk, SourceMetadata
-from distill_align.ingestion.chunkers.markdown import MarkdownChunker
 from distill_align.ingestion.chunkers.code import CodeChunker
+from distill_align.ingestion.chunkers.markdown import MarkdownChunker
 
 
 class TestMarkdownChunker:
@@ -51,10 +51,10 @@ class TestMarkdownChunker:
         assert len(chunks) == 0
 
     def test_invalid_config(self):
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, TypeError, ChunkerError)):
             MarkdownChunker(chunk_size=-1)
 
-        with pytest.raises(Exception):
+        with pytest.raises((ValueError, TypeError, ChunkerError)):
             MarkdownChunker(chunk_size=100, chunk_overlap=200)
 
 

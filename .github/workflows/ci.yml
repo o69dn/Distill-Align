@@ -35,10 +35,10 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install mypy pydantic pydantic-settings
-          pip install -e . --no-deps
+          pip install mypy
+          pip install -e .
       - name: Run mypy
-        run: mypy src/distill_align/
+        run: mypy src/distill_align/ --ignore-missing-imports
 
   test:
     name: Tests (Pytest)

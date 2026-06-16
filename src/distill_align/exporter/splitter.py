@@ -6,7 +6,6 @@ Provides reproducible, optionally stratified dataset splitting.
 
 import random
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 from loguru import logger
 
@@ -18,9 +17,9 @@ class DatasetSplit:
 
     def __init__(
         self,
-        train: List[ConversationSchema],
-        val: List[ConversationSchema],
-        test: List[ConversationSchema],
+        train: list[ConversationSchema],
+        val: list[ConversationSchema],
+        test: list[ConversationSchema],
     ):
         """
         Initialize the dataset split.
@@ -38,7 +37,7 @@ class DatasetSplit:
     def total(self) -> int:
         return len(self.train) + len(self.val) + len(self.test)
 
-    def summary(self) -> Dict[str, int]:
+    def summary(self) -> dict[str, int]:
         return {
             "train": len(self.train),
             "val": len(self.val),
@@ -68,11 +67,11 @@ class DatasetSplitter:
 
     def split(
         self,
-        conversations: List[ConversationSchema],
+        conversations: list[ConversationSchema],
         train_ratio: float = 0.9,
         val_ratio: float = 0.05,
         test_ratio: float = 0.05,
-        stratify_by: Optional[str] = None,
+        stratify_by: str | None = None,
     ) -> DatasetSplit:
         """
         Split conversations into train/val/test sets.
@@ -106,7 +105,7 @@ class DatasetSplitter:
 
     def _random_split(
         self,
-        conversations: List[ConversationSchema],
+        conversations: list[ConversationSchema],
         train_ratio: float,
         val_ratio: float,
         test_ratio: float,
@@ -132,7 +131,7 @@ class DatasetSplitter:
 
     def _stratified_split(
         self,
-        conversations: List[ConversationSchema],
+        conversations: list[ConversationSchema],
         train_ratio: float,
         val_ratio: float,
         test_ratio: float,
@@ -141,23 +140,20 @@ class DatasetSplitter:
     ) -> DatasetSplit:
         """Stratified split maintaining distribution of stratification field."""
         # Group by stratification field
-        groups: Dict[str, List[ConversationSchema]] = {}
+        groups: dict[str, list[ConversationSchema]] = {}
         for conv in conversations:
-            if stratify_by == "source_chunk_id":
-                key = conv.source_chunk_id
-            else:
-                key = getattr(conv, stratify_by, "unknown")
+            key = conv.source_chunk_id if stratify_by == "source_chunk_id" else getattr(conv, stratify_by, "unknown")
 
             if key not in groups:
                 groups[key] = []
             groups[key].append(conv)
 
-        train_list: List[ConversationSchema] = []
-        val_list: List[ConversationSchema] = []
-        test_list: List[ConversationSchema] = []
+        train_list: list[ConversationSchema] = []
+        val_list: list[ConversationSchema] = []
+        test_list: list[ConversationSchema] = []
 
         # Split each group proportionally
-        for key, group in groups.items():
+        for _key, group in groups.items():
             rng.shuffle(group)
             n = len(group)
             train_end = int(n * train_ratio)
@@ -183,7 +179,7 @@ class DatasetSplitter:
         split: DatasetSplit,
         output_dir: str | Path,
         prefix: str = "dataset",
-    ) -> Dict[str, Path]:
+    ) -> dict[str, Path]:
         """
         Save split datasets to JSON files.
 
@@ -196,7 +192,6 @@ class DatasetSplitter:
             Dictionary mapping split name to file path.
         """
         import json
-        from ..core.schemas import ConversationSchema
 
         output_path = Path(output_dir)
         output_path.mkdir(parents=True, exist_ok=True)

@@ -4,13 +4,9 @@ HTML file loader.
 Handles loading and metadata extraction from HTML files.
 """
 
-import re
-from pathlib import Path
-from typing import List, Optional
-
-from .base import BaseLoader
-from ...core.schemas import SourceMetadata
 from ...core.exceptions import LoaderError
+from ...core.schemas import SourceMetadata
+from .base import BaseLoader
 
 
 class HTMLLoader(BaseLoader):
@@ -31,7 +27,7 @@ class HTMLLoader(BaseLoader):
         try:
             from bs4 import BeautifulSoup
 
-            with open(self.file_path, "r", encoding="utf-8") as f:
+            with open(self.file_path, encoding="utf-8") as f:
                 html_content = f.read()
 
             soup = BeautifulSoup(html_content, "html.parser")
@@ -48,9 +44,11 @@ class HTMLLoader(BaseLoader):
             return "\n\n".join(lines)
 
         except ImportError:
-            raise LoaderError("beautifulsoup4 is required for HTML loading. Install with: pip install beautifulsoup4")
+            raise LoaderError(
+                "beautifulsoup4 is required for HTML loading. Install with: pip install beautifulsoup4"
+            ) from None
         except Exception as e:
-            raise LoaderError(f"Failed to read HTML file: {e}")
+            raise LoaderError(f"Failed to read HTML file: {e}") from e
 
     def extract_metadata(self) -> SourceMetadata:
         """
@@ -62,7 +60,7 @@ class HTMLLoader(BaseLoader):
         try:
             from bs4 import BeautifulSoup
 
-            with open(self.file_path, "r", encoding="utf-8") as f:
+            with open(self.file_path, encoding="utf-8") as f:
                 html_content = f.read()
 
             soup = BeautifulSoup(html_content, "html.parser")
@@ -110,4 +108,4 @@ class HTMLLoader(BaseLoader):
                 custom_tags={"format": "html"},
             )
         except Exception as e:
-            raise LoaderError(f"Failed to extract HTML metadata: {e}")
+            raise LoaderError(f"Failed to extract HTML metadata: {e}") from e

@@ -6,19 +6,19 @@ Exports conversations in the Alpaca format used by Stanford Alpaca and similar p
 
 import json
 from pathlib import Path
-from typing import List, Any, Optional
+from typing import Any
 
 from loguru import logger
 
-from .base import BaseFormatter
-from ...core.schemas import ConversationSchema, AlpacaEntry
 from ...core.exceptions import FormatError
+from ...core.schemas import AlpacaEntry, ConversationSchema
+from .base import BaseFormatter
 
 
 class AlpacaFormatter(BaseFormatter):
     """Formatter for Alpaca JSON format."""
 
-    def format(self, conversations: List[ConversationSchema], filename: str = "dataset_alpaca.json") -> Path:
+    def format(self, conversations: list[ConversationSchema], filename: str = "dataset_alpaca.json") -> Path:
         """
         Format conversations into Alpaca JSON.
 
@@ -51,9 +51,9 @@ class AlpacaFormatter(BaseFormatter):
             return output_path
 
         except Exception as e:
-            raise FormatError(f"Failed to format Alpaca: {e}")
+            raise FormatError(f"Failed to format Alpaca: {e}") from e
 
-    def _conversation_to_alpaca(self, conversation: ConversationSchema) -> Optional[AlpacaEntry]:
+    def _conversation_to_alpaca(self, conversation: ConversationSchema) -> AlpacaEntry | None:
         """
         Convert a conversation to an Alpaca entry.
 
@@ -125,7 +125,7 @@ class AlpacaFormatter(BaseFormatter):
 
         return True
 
-    def load(self, file_path: str | Path) -> List[dict]:
+    def load(self, file_path: str | Path) -> list[dict]:
         """
         Load Alpaca format data from file.
 
@@ -135,7 +135,7 @@ class AlpacaFormatter(BaseFormatter):
         Returns:
             List of Alpaca entries.
         """
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             data = json.load(f)
 
         if not self.validate(data):

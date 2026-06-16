@@ -4,13 +4,10 @@ Ollama LLM client.
 Supports local Ollama server for running models locally.
 """
 
-from typing import List, Dict, Any, Optional
-
 import httpx
-from loguru import logger
 
-from .base import BaseLLMClient, LLMMessage, LLMResponse
 from ...core.exceptions import LLMClientError, ModelNotFoundError
+from .base import BaseLLMClient, LLMMessage, LLMResponse
 
 
 class OllamaClient(BaseLLMClient):
@@ -33,7 +30,7 @@ class OllamaClient(BaseLLMClient):
             max_retries: Maximum number of retries.
         """
         super().__init__(base_url, api_key=None, model=model, timeout=timeout, max_retries=max_retries)
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""
@@ -52,9 +49,9 @@ class OllamaClient(BaseLLMClient):
 
     async def chat(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> LLMResponse:
         """
@@ -110,17 +107,17 @@ class OllamaClient(BaseLLMClient):
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                raise ModelNotFoundError(f"Model not found: {self.model}")
+                raise ModelNotFoundError(f"Model not found: {self.model}") from e
             else:
-                raise LLMClientError(f"Ollama API error: {e.response.status_code} - {e.response.text}")
+                raise LLMClientError(f"Ollama API error: {e.response.status_code} - {e.response.text}") from e
         except Exception as e:
-            raise LLMClientError(f"Ollama request failed: {e}")
+            raise LLMClientError(f"Ollama request failed: {e}") from e
 
     async def complete(
         self,
         prompt: str,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> LLMResponse:
         """
@@ -172,13 +169,13 @@ class OllamaClient(BaseLLMClient):
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 404:
-                raise ModelNotFoundError(f"Model not found: {self.model}")
+                raise ModelNotFoundError(f"Model not found: {self.model}") from e
             else:
-                raise LLMClientError(f"Ollama API error: {e.response.status_code} - {e.response.text}")
+                raise LLMClientError(f"Ollama API error: {e.response.status_code} - {e.response.text}") from e
         except Exception as e:
-            raise LLMClientError(f"Ollama request failed: {e}")
+            raise LLMClientError(f"Ollama request failed: {e}") from e
 
-    async def list_models(self) -> List[str]:
+    async def list_models(self) -> list[str]:
         """
         List available models on the Ollama server.
 
@@ -192,7 +189,7 @@ class OllamaClient(BaseLLMClient):
             data = response.json()
             return [m["name"] for m in data.get("models", [])]
         except Exception as e:
-            raise LLMClientError(f"Failed to list models: {e}")
+            raise LLMClientError(f"Failed to list models: {e}") from e
 
     async def pull_model(self, model_name: str) -> bool:
         """
@@ -210,4 +207,4 @@ class OllamaClient(BaseLLMClient):
             response.raise_for_status()
             return True
         except Exception as e:
-            raise LLMClientError(f"Failed to pull model: {e}")
+            raise LLMClientError(f"Failed to pull model: {e}") from e

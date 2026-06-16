@@ -4,12 +4,9 @@ Markdown file loader.
 Handles loading and metadata extraction from Markdown files.
 """
 
-from pathlib import Path
-from typing import List
-
-from .base import BaseLoader
-from ...core.schemas import DataChunk, SourceMetadata
 from ...core.exceptions import LoaderError
+from ...core.schemas import SourceMetadata
+from .base import BaseLoader
 
 
 class MarkdownLoader(BaseLoader):
@@ -30,7 +27,7 @@ class MarkdownLoader(BaseLoader):
         try:
             return self.file_path.read_text(encoding="utf-8")
         except Exception as e:
-            raise LoaderError(f"Failed to read Markdown file: {e}")
+            raise LoaderError(f"Failed to read Markdown file: {e}") from e
 
     def extract_metadata(self) -> SourceMetadata:
         """
@@ -52,7 +49,7 @@ class MarkdownLoader(BaseLoader):
             custom_tags={"format": "markdown"},
         )
 
-    def _extract_headers(self, content: str) -> List[str]:
+    def _extract_headers(self, content: str) -> list[str]:
         """
         Extract all headers from Markdown content.
 

@@ -5,14 +5,11 @@ Provides accurate token counting using tiktoken and cost estimation
 based on model pricing.
 """
 
-from typing import Dict, List, Optional
-
 from loguru import logger
 from pydantic import BaseModel
 
-
 # Pricing per 1M tokens (USD, as of 2024)
-MODEL_PRICING: Dict[str, Dict[str, float]] = {
+MODEL_PRICING: dict[str, dict[str, float]] = {
     # OpenAI models
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
@@ -35,7 +32,7 @@ MODEL_PRICING: Dict[str, Dict[str, float]] = {
 
 
 # Model to tiktoken encoding mapping
-MODEL_ENCODING_MAP: Dict[str, str] = {
+MODEL_ENCODING_MAP: dict[str, str] = {
     "gpt-4o": "o200k_base",
     "gpt-4o-mini": "o200k_base",
     "gpt-4-turbo": "cl100k_base",
@@ -126,7 +123,7 @@ class Tokenizer:
         # Fallback: ~4 characters per token (English)
         return max(1, len(text) // 4)
 
-    def count_message_tokens(self, messages: List[Dict[str, str]]) -> int:
+    def count_message_tokens(self, messages: list[dict[str, str]]) -> int:
         """
         Count tokens in a list of OpenAI-format messages.
 
@@ -155,7 +152,7 @@ class Tokenizer:
         total_tokens = 0
         for message in messages:
             total_tokens += tokens_per_message
-            for key, value in message.items():
+            for _key, value in message.items():
                 total_tokens += len(encoder.encode(str(value)))
             total_tokens += 1  # Role marker
 
@@ -216,7 +213,7 @@ class Tokenizer:
 
     def estimate_batch_cost(
         self,
-        texts: List[str],
+        texts: list[str],
         estimated_output_tokens: int = 500,
     ) -> CostEstimate:
         """

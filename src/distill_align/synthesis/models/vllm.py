@@ -4,14 +4,10 @@ vLLM client.
 Supports vLLM server for high-performance local inference.
 """
 
-from typing import List, Dict, Any, Optional
+from typing import Any
 
-import httpx
-from loguru import logger
-
-from .base import BaseLLMClient, LLMMessage, LLMResponse
+from ...core.exceptions import LLMClientError
 from .openai import OpenAIClient
-from ...core.exceptions import LLMClientError, ModelNotFoundError
 
 
 class VLLMClient(OpenAIClient):
@@ -46,7 +42,7 @@ class VLLMClient(OpenAIClient):
             max_retries=max_retries,
         )
 
-    async def get_model_info(self) -> Dict[str, Any]:
+    async def get_model_info(self) -> dict[str, Any]:
         """
         Get information about the loaded model.
 
@@ -62,4 +58,4 @@ class VLLMClient(OpenAIClient):
                 return data["data"][0]
             return {}
         except Exception as e:
-            raise LLMClientError(f"Failed to get model info: {e}")
+            raise LLMClientError(f"Failed to get model info: {e}") from e

@@ -18,18 +18,16 @@ Commands:
 
 import asyncio
 from pathlib import Path
-from typing import Optional
 
 import typer
 from rich.console import Console
-from rich.table import Table
-from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.table import Table
 
+from ..core.config_file import find_config_file, generate_default_config, load_config
 from ..core.logging import setup_logging
-from ..core.schemas import IngestionConfig, SynthesisConfig, ExportConfig
-from ..core.config_file import load_config, find_config_file, generate_default_config
-
+from ..core.schemas import ExportConfig, IngestionConfig, SynthesisConfig
 
 # Main Typer app
 app = typer.Typer(
@@ -54,8 +52,8 @@ app.add_typer(config_app, name="config")
 def main(
     ctx: typer.Context,
     log_level: str = typer.Option("INFO", "--log-level", "-l", help="Logging level"),
-    log_file: Optional[str] = typer.Option(None, "--log-file", help="Log file path"),
-    config_file: Optional[str] = typer.Option(None, "--config", "-c", help="Path to config file"),
+    log_file: str | None = typer.Option(None, "--log-file", help="Log file path"),
+    config_file: str | None = typer.Option(None, "--config", "-c", help="Path to config file"),
 ):
     """Distill-Align: Generate fine-tuning datasets from raw domain data."""
     setup_logging(log_level=log_level, log_file=log_file)
@@ -88,6 +86,7 @@ def ingest(
         pipeline = AutoIngestionPipeline(config)
     else:
         from ..ingestion.pipeline import IngestionPipeline
+
         pipeline = IngestionPipeline(config)
 
     with Progress(
@@ -103,7 +102,9 @@ def ingest(
             if auto_detect and hasattr(pipeline, "ingest_directory"):
                 # AutoIngestionPipeline supports progress callback
                 def progress_cb(current, total, name):
-                    progress.update(task, description=f"Processing {name} ({current}/{total})", completed=current, total=total)
+                    progress.update(
+                        task, description=f"Processing {name} ({current}/{total})", completed=current, total=total
+                    )
 
                 chunks = pipeline.ingest_directory(source_path, recursive=recursive, progress_callback=progress_cb)
             else:
@@ -112,6 +113,7 @@ def ingest(
         progress.update(task, completed=True)
 
     import json
+
     output_path = Path(output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -135,33 +137,34 @@ def synthesize(
     output: str = typer.Option("./conversations.json", "--output", "-o", help="Output file path"),
     provider: str = typer.Option("openai", "--provider", "-p", help="LLM provider"),
     model: str = typer.Option("gpt-4o", "--model", "-m", help="Model name"),
-    base_url: Optional[str] = typer.Option(None, "--base-url", help="API base URL"),
-    api_key: Optional[str] = typer.Option(None, "--api-key", help="API key (or use env var)"),
+    base_url: str | None = typer.Option(None, "--base-url", help="API base URL"),
+    api_key: str | None = typer.Option(None, "--api-key", help="API key (or use env var)"),
     concurrency: int = typer.Option(5, "--concurrency", "-c", help="Max concurrent requests"),
     rpm: int = typer.Option(60, "--rpm", help="Max requests per minute"),
-    job_id: Optional[str] = typer.Option(None, "--job-id", help="Job ID for resume support"),
+    job_id: str | None = typer.Option(None, "--job-id", help="Job ID for resume support"),
     resume: bool = typer.Option(False, "--resume", help="Resume a previous job"),
     no_cache: bool = typer.Option(False, "--no-cache", help="Disable caching"),
     no_checkpoint: bool = typer.Option(False, "--no-checkpoint", help="Disable checkpointing"),
-    prompt_dir: Optional[str] = typer.Option(None, "--prompts", help="Custom prompts directory"),
+    prompt_dir: str | None = typer.Option(None, "--prompts", help="Custom prompts directory"),
     mode: str = typer.Option("default", "--mode", help="Conversation mode: default, teach, debug, review, qa, explain"),
 ):
     """Synthesize chunks into structured conversations."""
     from ..core.cache import CacheManager
     from ..core.checkpoint import CheckpointManager
     from ..core.schemas import DataChunk
+    from ..synthesis.conversation_builder import ConversationBuilder, ConversationMode
     from ..synthesis.pipeline import SynthesisPipeline
-    from ..synthesis.conversation_builder import ConversationMode, ConversationBuilder
 
     console.print(Panel.fit("🧠 Synthesis Pipeline", style="bold magenta"))
 
     import json
+
     input_path = Path(input)
     if not input_path.exists():
         console.print(f"[red]Error: Input file does not exist: {input}[/red]")
         raise typer.Exit(1)
 
-    with open(input_path, "r", encoding="utf-8") as f:
+    with open(input_path, encoding="utf-8") as f:
         chunks_data = json.load(f)
     chunks = [DataChunk(**chunk) for chunk in chunks_data]
 
@@ -203,9 +206,7 @@ def synthesize(
                 mode_enum = ConversationMode(mode)
                 conversations = await builder.build_batch(chunks, mode_enum, client)
             else:
-                conversations = await pipeline.synthesize_batch(
-                    chunks, update_progress, job_id=job_id, resume=resume
-                )
+                conversations = await pipeline.synthesize_batch(chunks, update_progress, job_id=job_id, resume=resume)
             return conversations
 
     conversations = asyncio.run(run_synthesis())
@@ -221,7 +222,7 @@ def synthesize(
     table.add_column("Value", style="green")
     table.add_row("Input Chunks", str(len(chunks)))
     table.add_row("Conversations", str(len(conversations)))
-    table.add_row("Success Rate", f"{len(conversations)/len(chunks)*100:.1f}%" if chunks else "0%")
+    table.add_row("Success Rate", f"{len(conversations) / len(chunks) * 100:.1f}%" if chunks else "0%")
     table.add_row("Output File", str(output_path))
 
     if cache:
@@ -250,12 +251,13 @@ def export(
     console.print(Panel.fit("📤 Export Pipeline", style="bold green"))
 
     import json
+
     input_path = Path(input)
     if not input_path.exists():
         console.print(f"[red]Error: Input file does not exist: {input}[/red]")
         raise typer.Exit(1)
 
-    with open(input_path, "r", encoding="utf-8") as f:
+    with open(input_path, encoding="utf-8") as f:
         conv_data = json.load(f)
     conversations = [ConversationSchema(**conv) for conv in conv_data]
 
@@ -296,7 +298,7 @@ def export(
 def validate(
     input: str = typer.Argument(..., help="Input conversations JSON file"),
     dedupe: bool = typer.Option(True, "--dedupe/--no-dedupe", help="Remove duplicates"),
-    output: Optional[str] = typer.Option(None, "--output", "-o", help="Save report to file"),
+    output: str | None = typer.Option(None, "--output", "-o", help="Save report to file"),
 ):
     """Validate and analyze a dataset."""
     from ..core.schemas import ConversationSchema
@@ -305,12 +307,13 @@ def validate(
     console.print(Panel.fit("🔍 Dataset Validation", style="bold yellow"))
 
     import json
+
     input_path = Path(input)
     if not input_path.exists():
         console.print(f"[red]Error: Input file does not exist: {input}[/red]")
         raise typer.Exit(1)
 
-    with open(input_path, "r", encoding="utf-8") as f:
+    with open(input_path, encoding="utf-8") as f:
         conv_data = json.load(f)
     conversations = [ConversationSchema(**conv) for conv in conv_data]
 
@@ -333,8 +336,8 @@ def validate(
 @app.command()
 def status():
     """Check configuration and connections."""
-    from ..core.config_file import find_config_file
     from .. import __version__
+    from ..core.config_file import find_config_file
 
     console.print(Panel.fit(f"🩺 Distill-Align Status v{__version__}", style="bold green"))
 
@@ -344,6 +347,7 @@ def status():
 
     # Check Python version
     import sys
+
     py_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     table.add_row("Python Version", py_version)
 
@@ -354,12 +358,16 @@ def status():
     # Check cache directory
     cache_dir = Path(".cache")
     if cache_dir.exists():
-        table.add_row("Cache Directory", f"[green]{cache_dir}[/green] ({sum(f.stat().st_size for f in cache_dir.rglob('*') if f.is_file()) / 1024 / 1024:.1f} MB)")
+        table.add_row(
+            "Cache Directory",
+            f"[green]{cache_dir}[/green] ({sum(f.stat().st_size for f in cache_dir.rglob('*') if f.is_file()) / 1024 / 1024:.1f} MB)",
+        )
     else:
         table.add_row("Cache Directory", "[yellow]Not created yet[/yellow]")
 
     # Check env vars
     import os
+
     api_key = os.getenv("OPENAI_API_KEY") or os.getenv("DISTILL_LLM_API_KEY")
     if api_key:
         table.add_row("API Key", "[green]Set[/green]")
@@ -372,8 +380,8 @@ def status():
 # Jobs subcommand group
 @jobs_app.command("list")
 def jobs_list(
-    status: Optional[str] = typer.Option(None, "--status", help="Filter by status"),
-    job_type: Optional[str] = typer.Option(None, "--type", help="Filter by job type"),
+    status: str | None = typer.Option(None, "--status", help="Filter by status"),
+    job_type: str | None = typer.Option(None, "--type", help="Filter by job type"),
     limit: int = typer.Option(20, "--limit", help="Max jobs to show"),
 ):
     """List all synthesis jobs."""
@@ -396,6 +404,7 @@ def jobs_list(
 
     for job in jobs:
         from datetime import datetime
+
         created = datetime.fromtimestamp(job.created_at).strftime("%Y-%m-%d %H:%M")
         table.add_row(
             job.job_id,
@@ -434,9 +443,8 @@ def jobs_delete(
     """Delete a job checkpoint."""
     from ..core.checkpoint import CheckpointManager
 
-    if not force:
-        if not typer.confirm(f"Delete job {job_id}?"):
-            raise typer.Abort()
+    if not force and not typer.confirm(f"Delete job {job_id}?"):
+        raise typer.Abort()
 
     manager = CheckpointManager()
     if manager.delete_job(job_id):
@@ -499,6 +507,7 @@ def tui():
     """Launch the interactive TUI dashboard."""
     console.print(Panel.fit("🖥️ Launching TUI...", style="bold cyan"))
     from ..tui.app import DistillAlignApp
+
     tui_app = DistillAlignApp()
     tui_app.run()
 
@@ -507,6 +516,7 @@ def tui():
 def version():
     """Show version information."""
     from .. import __version__
+
     console.print(f"distill-align v{__version__}")
 
 

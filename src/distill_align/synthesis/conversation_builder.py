@@ -9,18 +9,16 @@ Provides different conversation generation strategies:
 """
 
 import uuid
-from enum import Enum
-from typing import Dict, List, Optional, Any
+from enum import StrEnum
 
 from loguru import logger
-from pydantic import BaseModel
 
-from ..core.schemas import ConversationSchema, SynthesizedTurn, DataChunk
+from ..core.schemas import ConversationSchema, DataChunk, SynthesizedTurn
 from .models.base import BaseLLMClient
 from .pruner import ContentPruner
 
 
-class ConversationMode(str, Enum):
+class ConversationMode(StrEnum):
     """Available conversation generation modes."""
 
     TEACH = "teach"  # "Teach me this in 5 questions"
@@ -31,7 +29,7 @@ class ConversationMode(str, Enum):
 
 
 # Prompt templates for each mode
-MODE_TEMPLATES: Dict[ConversationMode, Dict[str, str]] = {
+MODE_TEMPLATES: dict[ConversationMode, dict[str, str]] = {
     ConversationMode.TEACH: {
         "system": "You are an expert teacher. Create a multi-turn conversation that progressively teaches the following content to a student. Generate exactly 5 user questions, building from basic to advanced, with detailed assistant answers.",
     },
@@ -58,7 +56,7 @@ class ConversationBuilder:
     high-quality fine-tuning conversations.
     """
 
-    def __init__(self, pruner: Optional[ContentPruner] = None):
+    def __init__(self, pruner: ContentPruner | None = None):
         """
         Initialize the conversation builder.
 
@@ -73,7 +71,7 @@ class ConversationBuilder:
         mode: ConversationMode,
         llm_client: BaseLLMClient,
         temperature: float = 0.7,
-    ) -> Optional[ConversationSchema]:
+    ) -> ConversationSchema | None:
         """
         Build a conversation in the specified mode.
 
@@ -99,16 +97,12 @@ class ConversationBuilder:
             )
 
             # Parse JSON response
-            from .pruner import ContentPruner
             parsed = self.pruner.extract_json_from_response(response)
             if not parsed or "conversation" not in parsed:
                 # Fallback: treat as single assistant turn
                 return self._build_simple_conversation(chunk, response)
 
-            turns = [
-                SynthesizedTurn(role=t["role"], content=t["content"])
-                for t in parsed["conversation"]
-            ]
+            turns = [SynthesizedTurn(role=t["role"], content=t["content"]) for t in parsed["conversation"]]
 
             conversation = ConversationSchema(
                 id=str(uuid.uuid4()),
@@ -220,11 +214,11 @@ class ConversationBuilder:
 
     async def build_batch(
         self,
-        chunks: List[DataChunk],
+        chunks: list[DataChunk],
         mode: ConversationMode,
         llm_client: BaseLLMClient,
         temperature: float = 0.7,
-    ) -> List[ConversationSchema]:
+    ) -> list[ConversationSchema]:
         """
         Build conversations for a batch of chunks in the same mode.
 
@@ -239,14 +233,11 @@ class ConversationBuilder:
         """
         import asyncio
 
-        tasks = [
-            self.build_conversation(chunk, mode, llm_client, temperature)
-            for chunk in chunks
-        ]
+        tasks = [self.build_conversation(chunk, mode, llm_client, temperature) for chunk in chunks]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         conversations = []
-        for chunk, result in zip(chunks, results):
+        for chunk, result in zip(chunks, results, strict=False):
             if isinstance(result, Exception):
                 logger.warning(f"Failed to build conversation for {chunk.id}: {result}")
                 continue

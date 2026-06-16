@@ -4,12 +4,17 @@ Base loader class for file ingestion.
 All file loaders should inherit from this base class.
 """
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import List
+from typing import TYPE_CHECKING
 
-from ...core.schemas import DataChunk, SourceMetadata
 from ...core.exceptions import LoaderError
+from ...core.schemas import DataChunk, SourceMetadata
+
+if TYPE_CHECKING:
+    from ...ingestion.chunkers.base import BaseChunker
 
 
 class BaseLoader(ABC):
@@ -49,7 +54,7 @@ class BaseLoader(ABC):
         """
         pass
 
-    def to_chunks(self, chunker: "BaseChunker") -> List[DataChunk]:
+    def to_chunks(self, chunker: BaseChunker) -> list[DataChunk]:
         """
         Load file and split into chunks using the provided chunker.
 

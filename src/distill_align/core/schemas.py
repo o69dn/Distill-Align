@@ -5,16 +5,15 @@ Core Pydantic schemas for the Distill-Align framework.
 These models ensure data integrity across the ingestion, synthesis, and export stages.
 """
 
-from typing import Dict, Any, List, Literal, Optional
-from pydantic import BaseModel, Field, field_validator, model_validator
 import hashlib
-import json
-from datetime import datetime
+from typing import Any, Literal
 
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 # =============================================================================
 # Ingestion Schemas
 # =============================================================================
+
 
 class SourceMetadata(BaseModel):
     """Metadata to preserve macro-context for each chunk."""
@@ -22,20 +21,20 @@ class SourceMetadata(BaseModel):
     source_type: Literal["pdf", "markdown", "code", "text"] = "text"
     file_path: str
     file_name: str
-    title: Optional[str] = None
-    author: Optional[str] = None
-    language: Optional[str] = None
+    title: str | None = None
+    author: str | None = None
+    language: str | None = None
 
     # Code-specific fields
-    repository_url: Optional[str] = None
-    module_path: Optional[str] = None
+    repository_url: str | None = None
+    module_path: str | None = None
 
     # Document-specific fields
-    section_headers: List[str] = Field(default_factory=list)
-    page_number: Optional[int] = None
-    line_start: Optional[int] = None
-    line_end: Optional[int] = None
-    custom_tags: Dict[str, Any] = Field(default_factory=dict)
+    section_headers: list[str] = Field(default_factory=list)
+    page_number: int | None = None
+    line_start: int | None = None
+    line_end: int | None = None
+    custom_tags: dict[str, Any] = Field(default_factory=dict)
 
 
 class DataChunk(BaseModel):
@@ -44,8 +43,8 @@ class DataChunk(BaseModel):
     content: str
     metadata: SourceMetadata
     id: str = ""  # Computed in model_validator
-    tokens: Optional[int] = None  # Estimated token count
-    embedding: Optional[List[float]] = None  # Optional for semantic dedup
+    tokens: int | None = None  # Estimated token count
+    embedding: list[float] | None = None  # Optional for semantic dedup
 
     @model_validator(mode="after")
     def _generate_id(self) -> "DataChunk":
@@ -65,6 +64,7 @@ class DataChunk(BaseModel):
 # Synthesis Schemas
 # =============================================================================
 
+
 class SynthesizedTurn(BaseModel):
     """A single turn in a multi-turn conversation."""
 
@@ -77,22 +77,22 @@ class ConversationSchema(BaseModel):
 
     id: str  # UUID or deterministic hash
     source_chunk_id: str
-    turns: List[SynthesizedTurn]
-    reasoning_trace: Optional[str] = None  # Captured deep thinking
-    confidence_score: Optional[float] = Field(None, ge=0.0, le=1.0)
+    turns: list[SynthesizedTurn]
+    reasoning_trace: str | None = None  # Captured deep thinking
+    confidence_score: float | None = Field(None, ge=0.0, le=1.0)
 
-    def get_system_prompt(self) -> Optional[str]:
+    def get_system_prompt(self) -> str | None:
         """Extract system prompt if present."""
         for turn in self.turns:
             if turn.role == "system":
                 return turn.content
         return None
 
-    def get_user_turns(self) -> List[SynthesizedTurn]:
+    def get_user_turns(self) -> list[SynthesizedTurn]:
         """Extract all user turns."""
         return [t for t in self.turns if t.role == "user"]
 
-    def get_assistant_turns(self) -> List[SynthesizedTurn]:
+    def get_assistant_turns(self) -> list[SynthesizedTurn]:
         """Extract all assistant turns."""
         return [t for t in self.turns if t.role == "assistant"]
 
@@ -100,6 +100,7 @@ class ConversationSchema(BaseModel):
 # =============================================================================
 # Export Schemas
 # =============================================================================
+
 
 class ShareGPTMessage(BaseModel):
     """Standard ShareGPT format message."""
@@ -114,7 +115,7 @@ class ShareGPTItem(BaseModel):
     """A single ShareGPT conversation item."""
 
     id: str
-    conversations: List[ShareGPTMessage]
+    conversations: list[ShareGPTMessage]
 
 
 class AlpacaEntry(BaseModel):
@@ -123,11 +124,11 @@ class AlpacaEntry(BaseModel):
     instruction: str
     input: str
     output: str
-    system: Optional[str] = None
+    system: str | None = None
 
     @field_validator("system", mode="before")
     @classmethod
-    def _empty_system_to_none(cls, v: Optional[str]) -> Optional[str]:
+    def _empty_system_to_none(cls, v: str | None) -> str | None:
         if v == "":
             return None
         return v
@@ -136,6 +137,7 @@ class AlpacaEntry(BaseModel):
 # =============================================================================
 # Configuration Schemas
 # =============================================================================
+
 
 class IngestionConfig(BaseModel):
     """Configuration for the ingestion pipeline."""
@@ -152,8 +154,8 @@ class SynthesisConfig(BaseModel):
 
     llm_provider: Literal["openai", "ollama", "vllm"] = "openai"
     model_name: str = "gpt-4o"
-    base_url: Optional[str] = None
-    api_key: Optional[str] = None
+    base_url: str | None = None
+    api_key: str | None = None
     max_concurrency: int = Field(default=5, ge=1)
     max_rpm: int = Field(default=60, ge=1)
     retry_attempts: int = Field(default=5, ge=1)
@@ -165,7 +167,7 @@ class SynthesisConfig(BaseModel):
 class ExportConfig(BaseModel):
     """Configuration for the export pipeline."""
 
-    formats: List[Literal["sharegpt", "alpaca"]] = Field(default=["sharegpt"])
+    formats: list[Literal["sharegpt", "alpaca"]] = Field(default=["sharegpt"])
     output_dir: str = "./output"
     generate_unsloth_script: bool = True
     unsloth_model: str = "unsloth/Meta-Llama-3.1-8B-Instruct"

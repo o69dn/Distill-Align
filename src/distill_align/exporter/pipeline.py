@@ -5,25 +5,24 @@ Handles the full export workflow: validation, splitting, formatting, and Unsloth
 """
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
-from ..core.schemas import ConversationSchema, ExportConfig
 from ..core.exceptions import ExportError
-from .formatters.base import BaseFormatter
-from .formatters.sharegpt import ShareGPTFormatter
+from ..core.schemas import ConversationSchema, ExportConfig
+from .dataset_card import DatasetCardGenerator
 from .formatters.alpaca import AlpacaFormatter
+from .formatters.base import BaseFormatter
 from .formatters.chatml import ChatMLFormatter
 from .formatters.conversation import ConversationFormatter
+from .formatters.sharegpt import ShareGPTFormatter
+from .splitter import DatasetSplitter
 from .unsloth_builder import UnslothConfigBuilder
 from .validator import DatasetValidator, ValidationReport
-from .splitter import DatasetSplitter, DatasetSplit
-from .dataset_card import DatasetCardGenerator
-
 
 # Map format names to formatter classes
-FORMATTER_MAP: Dict[str, type[BaseFormatter]] = {
+FORMATTER_MAP: dict[str, type[BaseFormatter]] = {
     "sharegpt": ShareGPTFormatter,
     "alpaca": AlpacaFormatter,
     "chatml": ChatMLFormatter,
@@ -34,7 +33,7 @@ FORMATTER_MAP: Dict[str, type[BaseFormatter]] = {
 class ExportPipeline:
     """Orchestrates the export of conversations to various formats."""
 
-    def __init__(self, config: Optional[ExportConfig] = None):
+    def __init__(self, config: ExportConfig | None = None):
         """
         Initialize the export pipeline.
 
@@ -42,8 +41,8 @@ class ExportPipeline:
             config: Optional export configuration. Uses defaults if not provided.
         """
         self.config = config or ExportConfig()
-        self._formatters: Dict[str, BaseFormatter] = {}
-        self._unsloth_builder: Optional[UnslothConfigBuilder] = None
+        self._formatters: dict[str, BaseFormatter] = {}
+        self._unsloth_builder: UnslothConfigBuilder | None = None
         self._validator = DatasetValidator()
         self._splitter = DatasetSplitter()
         self._card_generator = DatasetCardGenerator()
@@ -62,10 +61,7 @@ class ExportPipeline:
             ExportError: If format is not supported.
         """
         if format_name not in FORMATTER_MAP:
-            raise ExportError(
-                f"Unsupported format: {format_name}. "
-                f"Supported: {', '.join(FORMATTER_MAP.keys())}"
-            )
+            raise ExportError(f"Unsupported format: {format_name}. Supported: {', '.join(FORMATTER_MAP.keys())}")
 
         if format_name not in self._formatters:
             self._formatters[format_name] = FORMATTER_MAP[format_name](self.config.output_dir)
@@ -79,9 +75,9 @@ class ExportPipeline:
 
     def validate(
         self,
-        conversations: List[ConversationSchema],
+        conversations: list[ConversationSchema],
         dedupe: bool = True,
-    ) -> tuple[List[ConversationSchema], ValidationReport]:
+    ) -> tuple[list[ConversationSchema], ValidationReport]:
         """
         Validate and optionally deduplicate conversations.
 
@@ -101,14 +97,14 @@ class ExportPipeline:
 
     def export(
         self,
-        conversations: List[ConversationSchema],
-        formats: Optional[List[str]] = None,
+        conversations: list[ConversationSchema],
+        formats: list[str] | None = None,
         dataset_filename: str = "dataset",
         generate_unsloth: bool = True,
         split: bool = False,
         generate_card: bool = False,
         **unsloth_kwargs,
-    ) -> Dict[str, Path]:
+    ) -> dict[str, Path]:
         """
         Export conversations to specified formats.
 
@@ -138,9 +134,7 @@ class ExportPipeline:
                 val_ratio=0.05,
                 test_ratio=0.05,
             )
-            split_paths = self._splitter.save_split(
-                split_result, self.config.output_dir, dataset_filename
-            )
+            split_paths = self._splitter.save_split(split_result, self.config.output_dir, dataset_filename)
             # Use train split as the primary dataset for training
             conversations = split_result.train
         else:
@@ -158,7 +152,7 @@ class ExportPipeline:
                 logger.info(f"Exported to {format_name}: {output_path}")
             except Exception as e:
                 logger.error(f"Failed to export to {format_name}: {e}")
-                raise ExportError(f"Export to {format_name} failed: {e}")
+                raise ExportError(f"Export to {format_name} failed: {e}") from e
 
         # Add split files to output
         output_files.update(split_paths)
@@ -194,7 +188,7 @@ class ExportPipeline:
 
         return output_files
 
-    def validate_export(self, output_files: Dict[str, Path]) -> Dict[str, bool]:
+    def validate_export(self, output_files: dict[str, Path]) -> dict[str, bool]:
         """Validate exported files."""
         results = {}
 
@@ -203,7 +197,7 @@ class ExportPipeline:
                 # Validate Python syntax or just check existence
                 if file_path.suffix == ".py":
                     try:
-                        with open(file_path, "r") as f:
+                        with open(file_path) as f:
                             compile(f.read(), file_path, "exec")
                         results[format_name] = True
                     except SyntaxError:
@@ -222,7 +216,7 @@ class ExportPipeline:
 
         return results
 
-    def get_export_stats(self, output_files: Dict[str, Path]) -> Dict[str, Any]:
+    def get_export_stats(self, output_files: dict[str, Path]) -> dict[str, Any]:
         """Get statistics about exported files."""
         stats = {}
 
@@ -238,7 +232,8 @@ class ExportPipeline:
                 if format_name in FORMATTER_MAP:
                     try:
                         import json
-                        with open(file_path, "r") as f:
+
+                        with open(file_path) as f:
                             data = json.load(f)
                         stats[format_name]["entries"] = len(data)
                     except Exception:

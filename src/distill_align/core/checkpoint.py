@@ -8,15 +8,15 @@ import json
 import time
 import uuid
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 from pydantic import BaseModel, Field
 
 
-class JobStatus(str, Enum):
+class JobStatus(StrEnum):
     """Status of a pipeline job."""
 
     PENDING = "pending"
@@ -35,7 +35,7 @@ class JobCheckpoint(BaseModel):
     status: JobStatus = JobStatus.PENDING
     created_at: float = Field(default_factory=time.time)
     updated_at: float = Field(default_factory=time.time)
-    completed_at: Optional[float] = None
+    completed_at: float | None = None
 
     # Progress tracking
     total_items: int = 0
@@ -44,15 +44,15 @@ class JobCheckpoint(BaseModel):
     skipped_items: int = 0
 
     # Item tracking
-    processed_ids: List[str] = Field(default_factory=list)
-    failed_ids: List[str] = Field(default_factory=list)
-    failed_errors: Dict[str, str] = Field(default_factory=dict)
+    processed_ids: list[str] = Field(default_factory=list)
+    failed_ids: list[str] = Field(default_factory=list)
+    failed_errors: dict[str, str] = Field(default_factory=dict)
 
     # Stats
-    stats: Dict[str, Any] = Field(default_factory=dict)
+    stats: dict[str, Any] = Field(default_factory=dict)
 
     # Configuration snapshot
-    config: Dict[str, Any] = Field(default_factory=dict)
+    config: dict[str, Any] = Field(default_factory=dict)
 
     @property
     def progress_pct(self) -> float:
@@ -73,7 +73,7 @@ class JobCheckpoint(BaseModel):
         return end - self.created_at
 
     @property
-    def eta_seconds(self) -> Optional[float]:
+    def eta_seconds(self) -> float | None:
         """Estimated time remaining in seconds."""
         if self.processed_items == 0:
             return None
@@ -113,8 +113,8 @@ class CheckpointManager:
         self,
         job_type: str,
         total_items: int = 0,
-        config: Optional[Dict[str, Any]] = None,
-        job_id: Optional[str] = None,
+        config: dict[str, Any] | None = None,
+        job_id: str | None = None,
     ) -> JobCheckpoint:
         """
         Create a new job checkpoint.
@@ -145,7 +145,7 @@ class CheckpointManager:
         logger.info(f"Created job {job_id} ({job_type}, {total_items} items)")
         return checkpoint
 
-    def load_job(self, job_id: str) -> Optional[JobCheckpoint]:
+    def load_job(self, job_id: str) -> JobCheckpoint | None:
         """
         Load a job checkpoint from disk.
 
@@ -160,7 +160,7 @@ class CheckpointManager:
             return None
 
         try:
-            with open(path, "r", encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             return JobCheckpoint(**data)
         except Exception as e:
@@ -183,7 +183,7 @@ class CheckpointManager:
         with open(path, "w", encoding="utf-8") as f:
             json.dump(checkpoint.model_dump(), f, indent=2, default=str)
 
-    def start_job(self, job_id: str) -> Optional[JobCheckpoint]:
+    def start_job(self, job_id: str) -> JobCheckpoint | None:
         """
         Mark a job as running.
 
@@ -202,7 +202,7 @@ class CheckpointManager:
         self.save_job(checkpoint)
         return checkpoint
 
-    def complete_job(self, job_id: str, stats: Optional[Dict[str, Any]] = None) -> Optional[JobCheckpoint]:
+    def complete_job(self, job_id: str, stats: dict[str, Any] | None = None) -> JobCheckpoint | None:
         """
         Mark a job as completed.
 
@@ -226,7 +226,7 @@ class CheckpointManager:
         logger.info(f"Job {job_id} completed: {checkpoint.processed_items}/{checkpoint.total_items} items")
         return checkpoint
 
-    def fail_job(self, job_id: str, error: str = "") -> Optional[JobCheckpoint]:
+    def fail_job(self, job_id: str, error: str = "") -> JobCheckpoint | None:
         """
         Mark a job as failed.
 
@@ -250,7 +250,7 @@ class CheckpointManager:
         logger.error(f"Job {job_id} failed: {error}")
         return checkpoint
 
-    def record_processed(self, job_id: str, item_id: str) -> Optional[JobCheckpoint]:
+    def record_processed(self, job_id: str, item_id: str) -> JobCheckpoint | None:
         """
         Record a successfully processed item.
 
@@ -273,7 +273,7 @@ class CheckpointManager:
 
         return checkpoint
 
-    def record_failed(self, job_id: str, item_id: str, error: str = "") -> Optional[JobCheckpoint]:
+    def record_failed(self, job_id: str, item_id: str, error: str = "") -> JobCheckpoint | None:
         """
         Record a failed item.
 
@@ -315,7 +315,7 @@ class CheckpointManager:
             return False
         return item_id in checkpoint.processed_ids
 
-    def get_unprocessed_ids(self, job_id: str, all_ids: List[str]) -> List[str]:
+    def get_unprocessed_ids(self, job_id: str, all_ids: list[str]) -> list[str]:
         """
         Get IDs that haven't been processed yet.
 
@@ -336,10 +336,10 @@ class CheckpointManager:
 
     def list_jobs(
         self,
-        status: Optional[JobStatus] = None,
-        job_type: Optional[str] = None,
+        status: JobStatus | None = None,
+        job_type: str | None = None,
         limit: int = 20,
-    ) -> List[JobCheckpoint]:
+    ) -> list[JobCheckpoint]:
         """
         List all jobs, optionally filtered.
 
@@ -354,7 +354,7 @@ class CheckpointManager:
         jobs = []
         for path in self.checkpoint_dir.glob("*.json"):
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     data = json.load(f)
                 job = JobCheckpoint(**data)
 
@@ -403,7 +403,7 @@ class CheckpointManager:
 
         for path in self.checkpoint_dir.glob("*.json"):
             try:
-                with open(path, "r", encoding="utf-8") as f:
+                with open(path, encoding="utf-8") as f:
                     data = json.load(f)
                 if data.get("created_at", 0) < cutoff:
                     path.unlink()

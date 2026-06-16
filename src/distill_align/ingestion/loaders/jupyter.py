@@ -5,12 +5,10 @@ Handles loading and metadata extraction from .ipynb files.
 """
 
 import json
-from pathlib import Path
-from typing import List, Optional
 
-from .base import BaseLoader
-from ...core.schemas import SourceMetadata
 from ...core.exceptions import LoaderError
+from ...core.schemas import SourceMetadata
+from .base import BaseLoader
 
 
 class JupyterLoader(BaseLoader):
@@ -31,7 +29,7 @@ class JupyterLoader(BaseLoader):
             LoaderError: If file cannot be read.
         """
         try:
-            with open(self.file_path, "r", encoding="utf-8") as f:
+            with open(self.file_path, encoding="utf-8") as f:
                 notebook = json.load(f)
 
             parts = []
@@ -62,7 +60,7 @@ class JupyterLoader(BaseLoader):
             return "\n\n".join(parts)
 
         except Exception as e:
-            raise LoaderError(f"Failed to read Jupyter notebook: {e}")
+            raise LoaderError(f"Failed to read Jupyter notebook: {e}") from e
 
     def extract_metadata(self) -> SourceMetadata:
         """
@@ -72,7 +70,7 @@ class JupyterLoader(BaseLoader):
             SourceMetadata with file information.
         """
         try:
-            with open(self.file_path, "r", encoding="utf-8") as f:
+            with open(self.file_path, encoding="utf-8") as f:
                 notebook = json.load(f)
 
             metadata = notebook.get("metadata", {})
@@ -111,4 +109,4 @@ class JupyterLoader(BaseLoader):
                 },
             )
         except Exception as e:
-            raise LoaderError(f"Failed to extract Jupyter metadata: {e}")
+            raise LoaderError(f"Failed to extract Jupyter metadata: {e}") from e

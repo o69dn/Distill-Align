@@ -5,16 +5,14 @@ Validates exported datasets for quality, deduplication, and generates statistics
 """
 
 import hashlib
-import json
 import re
 from collections import Counter
-from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any
 
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from ..core.schemas import ConversationSchema, SynthesizedTurn
+from ..core.schemas import ConversationSchema
 
 
 class ValidationIssue(BaseModel):
@@ -23,8 +21,8 @@ class ValidationIssue(BaseModel):
     severity: str  # "error", "warning", "info"
     category: str  # "structure", "quality", "duplication", "content"
     message: str
-    conversation_id: Optional[str] = None
-    details: Dict[str, Any] = Field(default_factory=dict)
+    conversation_id: str | None = None
+    details: dict[str, Any] = Field(default_factory=dict)
 
 
 class DatasetStats(BaseModel):
@@ -60,7 +58,7 @@ class DatasetStats(BaseModel):
     unique_count: int = 0
 
     # Conversation length histogram
-    length_histogram: Dict[str, int] = Field(default_factory=dict)
+    length_histogram: dict[str, int] = Field(default_factory=dict)
 
 
 class ValidationReport(BaseModel):
@@ -69,8 +67,8 @@ class ValidationReport(BaseModel):
     is_valid: bool = True
     quality_score: float = 1.0  # 0.0 to 1.0
     stats: DatasetStats = Field(default_factory=DatasetStats)
-    issues: List[ValidationIssue] = Field(default_factory=list)
-    duplicate_ids: List[str] = Field(default_factory=list)
+    issues: list[ValidationIssue] = Field(default_factory=list)
+    duplicate_ids: list[str] = Field(default_factory=list)
 
     @property
     def error_count(self) -> int:
@@ -83,13 +81,13 @@ class ValidationReport(BaseModel):
     def summary(self) -> str:
         """Generate a human-readable summary."""
         lines = [
-            f"Validation Report",
+            "Validation Report",
             f"{'=' * 50}",
             f"Valid: {self.is_valid}",
             f"Quality Score: {self.quality_score:.2f}",
             f"Errors: {self.error_count}, Warnings: {self.warning_count}",
-            f"",
-            f"Dataset Statistics:",
+            "",
+            "Dataset Statistics:",
             f"  Conversations: {self.stats.total_conversations}",
             f"  Total Turns: {self.stats.total_turns}",
             f"  Avg Turns/Conv: {self.stats.avg_turns_per_conversation:.1f}",
@@ -100,8 +98,8 @@ class ValidationReport(BaseModel):
         ]
 
         if self.issues:
-            lines.append(f"")
-            lines.append(f"Issues:")
+            lines.append("")
+            lines.append("Issues:")
             for issue in self.issues[:20]:  # Show first 20
                 lines.append(f"  [{issue.severity.upper()}] {issue.category}: {issue.message}")
             if len(self.issues) > 20:
@@ -152,7 +150,7 @@ class DatasetValidator:
         self.min_content_length = min_content_length
         self.max_filler_ratio = max_filler_ratio
 
-    def validate(self, conversations: List[ConversationSchema]) -> ValidationReport:
+    def validate(self, conversations: list[ConversationSchema]) -> ValidationReport:
         """
         Run full validation on a dataset.
 
@@ -162,7 +160,7 @@ class DatasetValidator:
         Returns:
             ValidationReport with stats, issues, and quality score.
         """
-        issues: List[ValidationIssue] = []
+        issues: list[ValidationIssue] = []
         quality_deductions = 0.0
 
         # Structure validation
@@ -178,12 +176,14 @@ class DatasetValidator:
         # Deduplication
         duplicate_ids, dup_count = self._find_duplicates(conversations)
         if dup_count > 0:
-            issues.append(ValidationIssue(
-                severity="warning",
-                category="duplication",
-                message=f"Found {dup_count} duplicate conversations",
-                details={"duplicate_ids": duplicate_ids[:10]},
-            ))
+            issues.append(
+                ValidationIssue(
+                    severity="warning",
+                    category="duplication",
+                    message=f"Found {dup_count} duplicate conversations",
+                    details={"duplicate_ids": duplicate_ids[:10]},
+                )
+            )
             quality_deductions += min(dup_count * 0.01, 0.2)
 
         # Statistics
@@ -203,62 +203,74 @@ class DatasetValidator:
             duplicate_ids=duplicate_ids,
         )
 
-        logger.info(f"Validation complete: {len(conversations)} conversations, "
-                     f"score={quality_score:.2f}, errors={report.error_count}, warnings={report.warning_count}")
+        logger.info(
+            f"Validation complete: {len(conversations)} conversations, "
+            f"score={quality_score:.2f}, errors={report.error_count}, warnings={report.warning_count}"
+        )
 
         return report
 
-    def _validate_structure(self, conversations: List[ConversationSchema]) -> List[ValidationIssue]:
+    def _validate_structure(self, conversations: list[ConversationSchema]) -> list[ValidationIssue]:
         """Validate conversation structure."""
         issues = []
 
         if len(conversations) < self.min_conversations:
-            issues.append(ValidationIssue(
-                severity="error",
-                category="structure",
-                message=f"Too few conversations: {len(conversations)} < {self.min_conversations}",
-            ))
+            issues.append(
+                ValidationIssue(
+                    severity="error",
+                    category="structure",
+                    message=f"Too few conversations: {len(conversations)} < {self.min_conversations}",
+                )
+            )
 
         for conv in conversations:
             # Check minimum turns
             if len(conv.turns) < self.min_turns_per_conversation:
-                issues.append(ValidationIssue(
-                    severity="warning",
-                    category="structure",
-                    message=f"Conversation {conv.id} has only {len(conv.turns)} turns",
-                    conversation_id=conv.id,
-                ))
+                issues.append(
+                    ValidationIssue(
+                        severity="warning",
+                        category="structure",
+                        message=f"Conversation {conv.id} has only {len(conv.turns)} turns",
+                        conversation_id=conv.id,
+                    )
+                )
 
             # Check for empty turns
             for i, turn in enumerate(conv.turns):
                 if not turn.content.strip():
-                    issues.append(ValidationIssue(
-                        severity="warning",
-                        category="structure",
-                        message=f"Conversation {conv.id} turn {i} is empty",
-                        conversation_id=conv.id,
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            severity="warning",
+                            category="structure",
+                            message=f"Conversation {conv.id} turn {i} is empty",
+                            conversation_id=conv.id,
+                        )
+                    )
 
             # Check role sequence
             roles = [t.role for t in conv.turns]
             if "user" not in roles:
-                issues.append(ValidationIssue(
-                    severity="warning",
-                    category="structure",
-                    message=f"Conversation {conv.id} has no user turn",
-                    conversation_id=conv.id,
-                ))
+                issues.append(
+                    ValidationIssue(
+                        severity="warning",
+                        category="structure",
+                        message=f"Conversation {conv.id} has no user turn",
+                        conversation_id=conv.id,
+                    )
+                )
             if "assistant" not in roles:
-                issues.append(ValidationIssue(
-                    severity="warning",
-                    category="structure",
-                    message=f"Conversation {conv.id} has no assistant turn",
-                    conversation_id=conv.id,
-                ))
+                issues.append(
+                    ValidationIssue(
+                        severity="warning",
+                        category="structure",
+                        message=f"Conversation {conv.id} has no assistant turn",
+                        conversation_id=conv.id,
+                    )
+                )
 
         return issues
 
-    def _validate_quality(self, conversations: List[ConversationSchema]) -> Tuple[List[ValidationIssue], float]:
+    def _validate_quality(self, conversations: list[ConversationSchema]) -> tuple[list[ValidationIssue], float]:
         """Validate content quality."""
         issues = []
         total_filler = 0
@@ -270,12 +282,14 @@ class DatasetValidator:
 
                 # Check content length
                 if len(turn.content) < self.min_content_length:
-                    issues.append(ValidationIssue(
-                        severity="info",
-                        category="quality",
-                        message=f"Conversation {conv.id} turn content is very short ({len(turn.content)} chars)",
-                        conversation_id=conv.id,
-                    ))
+                    issues.append(
+                        ValidationIssue(
+                            severity="info",
+                            category="quality",
+                            message=f"Conversation {conv.id} turn content is very short ({len(turn.content)} chars)",
+                            conversation_id=conv.id,
+                        )
+                    )
 
                 # Check for filler
                 for pattern in FILLER_PATTERNS:
@@ -286,19 +300,21 @@ class DatasetValidator:
         filler_ratio = total_filler / total_turns if total_turns > 0 else 0.0
 
         if filler_ratio > self.max_filler_ratio:
-            issues.append(ValidationIssue(
-                severity="warning",
-                category="quality",
-                message=f"High filler ratio: {filler_ratio:.1%} (max: {self.max_filler_ratio:.1%})",
-                details={"filler_ratio": filler_ratio},
-            ))
+            issues.append(
+                ValidationIssue(
+                    severity="warning",
+                    category="quality",
+                    message=f"High filler ratio: {filler_ratio:.1%} (max: {self.max_filler_ratio:.1%})",
+                    details={"filler_ratio": filler_ratio},
+                )
+            )
 
         return issues, filler_ratio
 
-    def _find_duplicates(self, conversations: List[ConversationSchema]) -> Tuple[List[str], int]:
+    def _find_duplicates(self, conversations: list[ConversationSchema]) -> tuple[list[str], int]:
         """Find duplicate conversations by content hash."""
-        seen_hashes: Dict[str, str] = {}  # hash -> first conversation_id
-        duplicate_ids: List[str] = []
+        seen_hashes: dict[str, str] = {}  # hash -> first conversation_id
+        duplicate_ids: list[str] = []
 
         for conv in conversations:
             # Hash based on all turn content
@@ -314,7 +330,7 @@ class DatasetValidator:
 
     def _compute_stats(
         self,
-        conversations: List[ConversationSchema],
+        conversations: list[ConversationSchema],
         duplicate_count: int,
         filler_ratio: float,
     ) -> DatasetStats:
@@ -338,7 +354,7 @@ class DatasetValidator:
         multi_turn = sum(1 for c in conversations if len(c.turns) > 2)
 
         # Length histogram
-        histogram: Dict[str, int] = {}
+        histogram: dict[str, int] = {}
         for count in turn_counts:
             bucket = f"{(count // 5) * 5}-{(count // 5) * 5 + 4}"
             histogram[bucket] = histogram.get(bucket, 0) + 1
@@ -366,7 +382,7 @@ class DatasetValidator:
             length_histogram=histogram,
         )
 
-    def deduplicate(self, conversations: List[ConversationSchema]) -> List[ConversationSchema]:
+    def deduplicate(self, conversations: list[ConversationSchema]) -> list[ConversationSchema]:
         """
         Remove duplicate conversations, keeping the first occurrence.
 
@@ -376,8 +392,8 @@ class DatasetValidator:
         Returns:
             Deduplicated conversations.
         """
-        seen_hashes: Set[str] = set()
-        unique: List[ConversationSchema] = []
+        seen_hashes: set[str] = set()
+        unique: list[ConversationSchema] = []
 
         for conv in conversations:
             content = "|".join(t.content for t in conv.turns)

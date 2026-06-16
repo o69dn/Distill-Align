@@ -24,21 +24,25 @@ class DistillAlignError(Exception):
 
 class IngestionError(DistillAlignError):
     """Base exception for ingestion-related errors."""
+
     pass
 
 
 class LoaderError(IngestionError):
     """Error during file loading."""
+
     pass
 
 
 class ChunkerError(IngestionError):
     """Error during chunking."""
+
     pass
 
 
 class UnsupportedFormatError(IngestionError):
     """Unsupported file format."""
+
     pass
 
 
@@ -49,26 +53,31 @@ class UnsupportedFormatError(IngestionError):
 
 class SynthesisError(DistillAlignError):
     """Base exception for synthesis-related errors."""
+
     pass
 
 
 class LLMClientError(SynthesisError):
     """Error communicating with LLM backend."""
+
     pass
 
 
 class RateLimitError(LLMClientError):
     """Rate limit exceeded."""
+
     pass
 
 
 class ModelNotFoundError(LLMClientError):
     """Requested model not found."""
+
     pass
 
 
 class PromptError(SynthesisError):
     """Error in prompt template rendering."""
+
     pass
 
 
@@ -79,16 +88,19 @@ class PromptError(SynthesisError):
 
 class ExportError(DistillAlignError):
     """Base exception for export-related errors."""
+
     pass
 
 
 class FormatError(ExportError):
     """Error formatting dataset."""
+
     pass
 
 
 class UnslothConfigError(ExportError):
     """Error generating Unsloth configuration."""
+
     pass
 
 
@@ -99,14 +111,17 @@ class UnslothConfigError(ExportError):
 
 class PipelineError(DistillAlignError):
     """Base exception for pipeline orchestration errors."""
+
     pass
 
 
 class PipelineStageError(PipelineError):
     """Error in a specific pipeline stage."""
+
     pass
 
 
 class PipelineTimeoutError(PipelineError):
     """Pipeline execution timeout."""
+
     pass

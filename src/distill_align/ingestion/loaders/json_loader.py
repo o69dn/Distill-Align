@@ -4,13 +4,12 @@ JSON/JSONL file loader.
 Handles loading and metadata extraction from JSON and JSONL files.
 """
 
+import contextlib
 import json
-from pathlib import Path
-from typing import Any, Dict, List, Optional
 
-from .base import BaseLoader
-from ...core.schemas import SourceMetadata
 from ...core.exceptions import LoaderError
+from ...core.schemas import SourceMetadata
+from .base import BaseLoader
 
 
 class JSONLoader(BaseLoader):
@@ -29,7 +28,7 @@ class JSONLoader(BaseLoader):
             LoaderError: If file cannot be read.
         """
         try:
-            with open(self.file_path, "r", encoding="utf-8") as f:
+            with open(self.file_path, encoding="utf-8") as f:
                 content = f.read()
 
             if self.file_path.suffix == ".jsonl":
@@ -38,7 +37,7 @@ class JSONLoader(BaseLoader):
                 return self._load_json(content)
 
         except Exception as e:
-            raise LoaderError(f"Failed to read JSON file: {e}")
+            raise LoaderError(f"Failed to read JSON file: {e}") from e
 
     def _load_json(self, content: str) -> str:
         """Load and format a JSON file."""
@@ -72,19 +71,17 @@ class JSONLoader(BaseLoader):
             SourceMetadata with file information.
         """
         try:
-            with open(self.file_path, "r", encoding="utf-8") as f:
+            with open(self.file_path, encoding="utf-8") as f:
                 content = f.read()
 
             if self.file_path.suffix == ".jsonl":
-                lines = [l for l in content.strip().split("\n") if l.strip()]
+                lines = [ln for ln in content.strip().split("\n") if ln.strip()]
                 entry_count = len(lines)
                 # Try to get keys from first entry
                 sample_keys = []
                 if lines:
-                    try:
+                    with contextlib.suppress(json.JSONDecodeError):
                         sample_keys = list(json.loads(lines[0]).keys())
-                    except json.JSONDecodeError:
-                        pass
             else:
                 data = json.loads(content)
                 if isinstance(data, list):
@@ -106,4 +103,4 @@ class JSONLoader(BaseLoader):
                 },
             )
         except Exception as e:
-            raise LoaderError(f"Failed to extract JSON metadata: {e}")
+            raise LoaderError(f"Failed to extract JSON metadata: {e}") from e

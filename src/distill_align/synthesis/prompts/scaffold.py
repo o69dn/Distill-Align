@@ -6,16 +6,15 @@ Supports loading from external .j2 template files.
 """
 
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from jinja2 import Template
-
 
 # Default templates directory
 _TEMPLATES_DIR = Path(__file__).parent / "scaffold"
 
 
-def _load_template(name: str, custom_dir: Optional[Path] = None) -> Template:
+def _load_template(name: str, custom_dir: Path | None = None) -> Template:
     """
     Load a Jinja2 template from file.
 
@@ -38,7 +37,7 @@ def _load_template(name: str, custom_dir: Optional[Path] = None) -> Template:
     raise FileNotFoundError(f"Template not found: {name}")
 
 
-def get_system_prompt(custom_dir: Optional[Path] = None) -> str:
+def get_system_prompt(custom_dir: Path | None = None) -> str:
     """
     Get the Scaffold system prompt.
 
@@ -54,8 +53,8 @@ def get_system_prompt(custom_dir: Optional[Path] = None) -> str:
 
 def render_scaffold_prompt(
     content: str,
-    metadata: Dict[str, Any],
-    custom_dir: Optional[str | Path] = None,
+    metadata: dict[str, Any],
+    custom_dir: str | Path | None = None,
 ) -> str:
     """
     Render a Scaffold Action prompt.

@@ -4,14 +4,13 @@ Structural pruner for synthesized content.
 Applies heuristics to clean, filter, and validate synthesized conversations.
 """
 
-import re
 import json
-from typing import List, Dict, Any, Optional, Tuple
+import re
+from typing import Any
 
 from loguru import logger
 
 from ..core.schemas import ConversationSchema, SynthesizedTurn
-from ..core.exceptions import SynthesisError
 
 
 class ContentPruner:
@@ -51,7 +50,7 @@ class ContentPruner:
         self.max_filler_ratio = max_filler_ratio
         self.require_json_validity = require_json_validity
 
-    def prune_conversation(self, conversation: ConversationSchema) -> Optional[ConversationSchema]:
+    def prune_conversation(self, conversation: ConversationSchema) -> ConversationSchema | None:
         """
         Prune a single conversation.
 
@@ -70,10 +69,12 @@ class ContentPruner:
             if not pruned_content.strip():
                 continue
 
-            pruned_turns.append(SynthesizedTurn(
-                role=turn.role,
-                content=pruned_content,
-            ))
+            pruned_turns.append(
+                SynthesizedTurn(
+                    role=turn.role,
+                    content=pruned_content,
+                )
+            )
 
         # Validate minimum turns
         if len(pruned_turns) < 2:
@@ -93,7 +94,7 @@ class ContentPruner:
             confidence_score=conversation.confidence_score,
         )
 
-    def prune_batch(self, conversations: List[ConversationSchema]) -> List[ConversationSchema]:
+    def prune_batch(self, conversations: list[ConversationSchema]) -> list[ConversationSchema]:
         """
         Prune a batch of conversations.
 
@@ -132,7 +133,7 @@ class ContentPruner:
 
         return content
 
-    def _validate_structure(self, turns: List[SynthesizedTurn]) -> bool:
+    def _validate_structure(self, turns: list[SynthesizedTurn]) -> bool:
         """
         Validate conversation structure.
 
@@ -156,13 +157,9 @@ class ContentPruner:
 
         # Check for alternating user/assistant (allowing system at start)
         non_system_turns = [t for t in turns if t.role != "system"]
-        for i in range(len(non_system_turns) - 1):
-            if non_system_turns[i].role == non_system_turns[i + 1].role:
-                return False
+        return all(non_system_turns[i].role != non_system_turns[i + 1].role for i in range(len(non_system_turns) - 1))
 
-        return True
-
-    def extract_json_from_response(self, content: str) -> Optional[Dict[str, Any]]:
+    def extract_json_from_response(self, content: str) -> dict[str, Any] | None:
         """
         Extract JSON from LLM response content.
 
@@ -198,9 +195,7 @@ class ContentPruner:
         except json.JSONDecodeError:
             return None
 
-    def validate_conversation_quality(
-        self, conversation: ConversationSchema
-    ) -> Tuple[bool, float, List[str]]:
+    def validate_conversation_quality(self, conversation: ConversationSchema) -> tuple[bool, float, list[str]]:
         """
         Validate conversation quality.
 
@@ -226,8 +221,7 @@ class ContentPruner:
 
         # Check for filler ratio
         filler_count = sum(
-            1 for t in conversation.turns
-            if any(re.match(p, t.content, re.IGNORECASE) for p in self.FILLER_PHRASES)
+            1 for t in conversation.turns if any(re.match(p, t.content, re.IGNORECASE) for p in self.FILLER_PHRASES)
         )
         filler_ratio = filler_count / len(conversation.turns) if conversation.turns else 0
         if filler_ratio > self.max_filler_ratio:

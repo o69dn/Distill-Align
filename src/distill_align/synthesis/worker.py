@@ -11,15 +11,16 @@ Features:
 """
 
 import asyncio
+from collections.abc import Callable
 from datetime import datetime
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
 from ..core.cache import CacheManager
 from ..core.checkpoint import CheckpointManager
 from ..core.exceptions import LLMClientError, RateLimitError
-from .models.base import BaseLLMClient, LLMMessage, LLMResponse
+from .models.base import BaseLLMClient
 
 
 class RateLimiter:
@@ -28,7 +29,7 @@ class RateLimiter:
     def __init__(self, max_rpm: int = 60):
         self.max_rpm = max_rpm
         self.interval = 60.0 / max_rpm
-        self._last_request_time: Optional[datetime] = None
+        self._last_request_time: datetime | None = None
         self._lock = asyncio.Lock()
 
     async def acquire(self) -> None:
@@ -56,8 +57,8 @@ class BatchWorker:
         max_concurrency: int = 5,
         max_rpm: int = 60,
         retry_attempts: int = 5,
-        cache_manager: Optional[CacheManager] = None,
-        checkpoint_manager: Optional[CheckpointManager] = None,
+        cache_manager: CacheManager | None = None,
+        checkpoint_manager: CheckpointManager | None = None,
         cache_dir: str = ".cache",
         cache_ttl_days: int = 30,
     ):
@@ -100,11 +101,11 @@ class BatchWorker:
 
     async def process_item(
         self,
-        item: Dict[str, Any],
+        item: dict[str, Any],
         processor_fn: Callable[..., Any],
         use_cache: bool = True,
-        job_id: Optional[str] = None,
-    ) -> Dict[str, Any]:
+        job_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Process a single item with retries, caching, and checkpointing.
 
@@ -173,7 +174,7 @@ class BatchWorker:
 
     async def _process_with_retry(
         self,
-        item: Dict[str, Any],
+        item: dict[str, Any],
         processor_fn: Callable[..., Any],
     ) -> Any:
         """Process item with exponential backoff retries."""
@@ -184,13 +185,13 @@ class BatchWorker:
                 return await processor_fn(item, self.llm_client)
             except RateLimitError as e:
                 last_exception = e
-                wait_time = (2 ** attempt) * 1.0
+                wait_time = (2**attempt) * 1.0
                 logger.warning(f"Rate limited, waiting {wait_time:.1f}s (attempt {attempt + 1}/{self.retry_attempts})")
                 await asyncio.sleep(wait_time)
             except LLMClientError as e:
                 last_exception = e
                 if attempt < self.retry_attempts - 1:
-                    wait_time = (2 ** attempt) * 0.5
+                    wait_time = (2**attempt) * 0.5
                     logger.warning(f"LLM error, retrying in {wait_time:.1f}s: {e}")
                     await asyncio.sleep(wait_time)
                 else:
@@ -203,13 +204,13 @@ class BatchWorker:
 
     async def run_batch(
         self,
-        items: List[Dict[str, Any]],
+        items: list[dict[str, Any]],
         processor_fn: Callable[..., Any],
         use_cache: bool = True,
-        job_id: Optional[str] = None,
-        progress_callback: Optional[Callable[[int, int], None]] = None,
+        job_id: str | None = None,
+        progress_callback: Callable[[int, int], None] | None = None,
         checkpoint_interval: int = 10,
-    ) -> List[Dict[str, Any]]:
+    ) -> list[dict[str, Any]]:
         """
         Run the worker pool over a batch of items.
 
@@ -243,8 +244,14 @@ class BatchWorker:
         for i, item in enumerate(items):
             task = asyncio.create_task(
                 self._process_with_progress(
-                    item, processor_fn, use_cache, job_id, i, len(items),
-                    progress_callback, checkpoint_interval,
+                    item,
+                    processor_fn,
+                    use_cache,
+                    job_id,
+                    i,
+                    len(items),
+                    progress_callback,
+                    checkpoint_interval,
                 )
             )
             tasks.append(task)
@@ -255,11 +262,13 @@ class BatchWorker:
         processed_results = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
-                processed_results.append({
-                    "status": "failed",
-                    "error": str(result),
-                    "item": items[i],
-                })
+                processed_results.append(
+                    {
+                        "status": "failed",
+                        "error": str(result),
+                        "item": items[i],
+                    }
+                )
             else:
                 processed_results.append(result)
 
@@ -272,13 +281,13 @@ class BatchWorker:
 
     async def _process_with_progress(
         self,
-        item: Dict[str, Any],
+        item: dict[str, Any],
         processor_fn: Callable[..., Any],
         use_cache: bool,
-        job_id: Optional[str],
+        job_id: str | None,
         index: int,
         total: int,
-        progress_callback: Optional[Callable[[int, int], None]],
+        progress_callback: Callable[[int, int], None] | None,
         checkpoint_interval: int,
     ) -> Any:
         """Process item with progress tracking."""
@@ -289,21 +298,17 @@ class BatchWorker:
                 progress_callback(index + 1, total)
 
             return result
-        except Exception as e:
+        except Exception:
             if progress_callback:
                 progress_callback(index + 1, total)
             raise
 
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get processing statistics."""
         cache_stats = self.cache.stats()
         return {
             **self.stats,
-            "success_rate": (
-                self.stats["completed"] / self.stats["total"] * 100
-                if self.stats["total"] > 0
-                else 0
-            ),
+            "success_rate": (self.stats["completed"] / self.stats["total"] * 100 if self.stats["total"] > 0 else 0),
             "cache_hit_rate": cache_stats.hit_rate,
             "cache_entries": cache_stats.total_entries,
             "cache_size_mb": cache_stats.db_size_mb,

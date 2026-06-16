@@ -5,11 +5,9 @@ All LLM provider clients should inherit from this base class.
 """
 
 from abc import ABC, abstractmethod
-from typing import List, Dict, Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
-
-from ...core.exceptions import LLMClientError
 
 
 class LLMMessage(BaseModel):
@@ -17,7 +15,7 @@ class LLMMessage(BaseModel):
 
     role: str  # system, user, assistant, tool
     content: str
-    name: Optional[str] = None
+    name: str | None = None
 
 
 class LLMResponse(BaseModel):
@@ -25,9 +23,9 @@ class LLMResponse(BaseModel):
 
     content: str
     model: str
-    usage: Dict[str, int] = {}  # prompt_tokens, completion_tokens, total_tokens
+    usage: dict[str, int] = {}  # prompt_tokens, completion_tokens, total_tokens
     finish_reason: str = "stop"
-    raw_response: Dict[str, Any] = {}
+    raw_response: dict[str, Any] = {}
 
 
 class BaseLLMClient(ABC):
@@ -36,7 +34,7 @@ class BaseLLMClient(ABC):
     def __init__(
         self,
         base_url: str,
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = "default",
         timeout: float = 120.0,
         max_retries: int = 3,
@@ -60,9 +58,9 @@ class BaseLLMClient(ABC):
     @abstractmethod
     async def chat(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> LLMResponse:
         """
@@ -87,7 +85,7 @@ class BaseLLMClient(ABC):
         self,
         prompt: str,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> LLMResponse:
         """
@@ -112,7 +110,7 @@ class BaseLLMClient(ABC):
         system_prompt: str,
         user_prompt: str,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> str:
         """

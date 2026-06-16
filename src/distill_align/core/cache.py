@@ -9,7 +9,7 @@ import json
 import sqlite3
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 from pydantic import BaseModel
@@ -24,8 +24,8 @@ class CacheStats(BaseModel):
     hit_rate: float = 0.0
     db_size_bytes: int = 0
     db_size_mb: float = 0.0
-    oldest_entry: Optional[float] = None
-    newest_entry: Optional[float] = None
+    oldest_entry: float | None = None
+    newest_entry: float | None = None
 
 
 class CacheEntry(BaseModel):
@@ -119,7 +119,7 @@ class CacheManager:
         hash_input = f"{content}|{model}|{prompt_id}"
         return hashlib.sha256(hash_input.encode()).hexdigest()
 
-    def get(self, key: str) -> Optional[Dict[str, Any]]:
+    def get(self, key: str) -> dict[str, Any] | None:
         """
         Retrieve a cached result.
 
@@ -131,9 +131,7 @@ class CacheManager:
         """
         with sqlite3.connect(str(self.db_path)) as conn:
             conn.row_factory = sqlite3.Row
-            row = conn.execute(
-                "SELECT * FROM cache WHERE key = ?", (key,)
-            ).fetchone()
+            row = conn.execute("SELECT * FROM cache WHERE key = ?", (key,)).fetchone()
 
             if row is None:
                 self._misses += 1
@@ -250,7 +248,7 @@ class CacheManager:
             newest_entry=newest,
         )
 
-    def prune(self, older_than_days: Optional[int] = None) -> int:
+    def prune(self, older_than_days: int | None = None) -> int:
         """
         Remove old or expired entries.
 
@@ -267,7 +265,9 @@ class CacheManager:
             removed = cursor.rowcount
 
         if removed > 0:
-            logger.info(f"Pruned {removed} cache entries older than {older_than_days or self.ttl_seconds // 86400} days")
+            logger.info(
+                f"Pruned {removed} cache entries older than {older_than_days or self.ttl_seconds // 86400} days"
+            )
         return removed
 
     def clear(self) -> int:
@@ -285,7 +285,7 @@ class CacheManager:
         logger.info(f"Cleared {removed} cache entries")
         return removed
 
-    def get_cached_keys(self, model: Optional[str] = None) -> List[str]:
+    def get_cached_keys(self, model: str | None = None) -> list[str]:
         """
         Get all cached keys, optionally filtered by model.
 
@@ -297,14 +297,12 @@ class CacheManager:
         """
         with sqlite3.connect(str(self.db_path)) as conn:
             if model:
-                rows = conn.execute(
-                    "SELECT key FROM cache WHERE model = ?", (model,)
-                ).fetchall()
+                rows = conn.execute("SELECT key FROM cache WHERE model = ?", (model,)).fetchall()
             else:
                 rows = conn.execute("SELECT key FROM cache").fetchall()
         return [row[0] for row in rows]
 
-    def get_total_tokens(self, model: Optional[str] = None) -> int:
+    def get_total_tokens(self, model: str | None = None) -> int:
         """
         Get total tokens used across all cached entries.
 
@@ -321,9 +319,7 @@ class CacheManager:
                     (model,),
                 ).fetchone()
             else:
-                row = conn.execute(
-                    "SELECT COALESCE(SUM(tokens_used), 0) FROM cache"
-                ).fetchone()
+                row = conn.execute("SELECT COALESCE(SUM(tokens_used), 0) FROM cache").fetchone()
         return row[0]
 
     def close(self) -> None:

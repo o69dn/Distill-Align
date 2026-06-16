@@ -6,13 +6,13 @@ Exports conversations in the ShareGPT format used by many fine-tuning tools.
 
 import json
 from pathlib import Path
-from typing import List, Any
+from typing import Any
 
 from loguru import logger
 
-from .base import BaseFormatter
-from ...core.schemas import ConversationSchema, ShareGPTMessage, ShareGPTItem
 from ...core.exceptions import FormatError
+from ...core.schemas import ConversationSchema, ShareGPTItem, ShareGPTMessage
+from .base import BaseFormatter
 
 
 class ShareGPTFormatter(BaseFormatter):
@@ -26,7 +26,7 @@ class ShareGPTFormatter(BaseFormatter):
         "tool": "tool",
     }
 
-    def format(self, conversations: List[ConversationSchema], filename: str = "dataset_sharegpt.json") -> Path:
+    def format(self, conversations: list[ConversationSchema], filename: str = "dataset_sharegpt.json") -> Path:
         """
         Format conversations into ShareGPT JSON.
 
@@ -66,7 +66,7 @@ class ShareGPTFormatter(BaseFormatter):
             return output_path
 
         except Exception as e:
-            raise FormatError(f"Failed to format ShareGPT: {e}")
+            raise FormatError(f"Failed to format ShareGPT: {e}") from e
 
     def validate(self, data: Any) -> bool:
         """
@@ -97,7 +97,7 @@ class ShareGPTFormatter(BaseFormatter):
 
         return True
 
-    def load(self, file_path: str | Path) -> List[dict]:
+    def load(self, file_path: str | Path) -> list[dict]:
         """
         Load ShareGPT format data from file.
 
@@ -107,7 +107,7 @@ class ShareGPTFormatter(BaseFormatter):
         Returns:
             List of ShareGPT items.
         """
-        with open(file_path, "r", encoding="utf-8") as f:
+        with open(file_path, encoding="utf-8") as f:
             data = json.load(f)
 
         if not self.validate(data):

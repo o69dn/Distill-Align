@@ -3,7 +3,6 @@ Pytest configuration and fixtures for Distill-Align tests.
 """
 
 import pytest
-from pathlib import Path
 
 
 @pytest.fixture
@@ -73,10 +72,10 @@ def sample_chunks():
             file_path="/test/file.md",
             file_name="file.md",
             title="Test Document",
-            section_headers=[f"Section {i+1}"],
+            section_headers=[f"Section {i + 1}"],
         )
         chunk = DataChunk(
-            content=f"This is test chunk {i+1} with some sample content.",
+            content=f"This is test chunk {i + 1} with some sample content.",
             metadata=metadata,
         )
         chunks.append(chunk)

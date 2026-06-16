@@ -2,13 +2,13 @@
 Unit tests for exporter module.
 """
 
-import pytest
 import json
-from pathlib import Path
+
+import pytest
 
 from distill_align.core.schemas import ConversationSchema, SynthesizedTurn
-from distill_align.exporter.formatters.sharegpt import ShareGPTFormatter
 from distill_align.exporter.formatters.alpaca import AlpacaFormatter
+from distill_align.exporter.formatters.sharegpt import ShareGPTFormatter
 
 
 @pytest.fixture
@@ -45,7 +45,7 @@ class TestShareGPTFormatter:
         assert output_path.exists()
         assert output_path.name == "test_sharegpt.json"
 
-        with open(output_path, "r") as f:
+        with open(output_path) as f:
             data = json.load(f)
 
         assert len(data) == 2
@@ -74,7 +74,7 @@ class TestShareGPTFormatter:
         formatter = ShareGPTFormatter(temp_output_dir)
         output_path = formatter.format(sample_conversations)
 
-        with open(output_path, "r") as f:
+        with open(output_path) as f:
             data = json.load(f)
 
         # Check role mapping
@@ -94,7 +94,7 @@ class TestAlpacaFormatter:
         assert output_path.exists()
         assert output_path.name == "test_alpaca.json"
 
-        with open(output_path, "r") as f:
+        with open(output_path) as f:
             data = json.load(f)
 
         assert len(data) == 2
@@ -121,7 +121,7 @@ class TestAlpacaFormatter:
         formatter = AlpacaFormatter(temp_output_dir)
         output_path = formatter.format(sample_conversations)
 
-        with open(output_path, "r") as f:
+        with open(output_path) as f:
             data = json.load(f)
 
         # First conversation has system prompt

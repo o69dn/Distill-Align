@@ -5,43 +5,34 @@ Provides an interactive dashboard for monitoring pipeline execution.
 Features real-time stats, job management, cache inspection, and log viewing.
 """
 
-import asyncio
-import threading
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
+from loguru import logger
 from textual.app import App, ComposeResult
+from textual.binding import Binding
 from textual.containers import Container, Horizontal, Vertical
 from textual.widgets import (
-    Header,
-    Footer,
-    Static,
     Button,
     DataTable,
-    ProgressBar,
+    Footer,
+    Header,
     Label,
-    Select,
-    Input,
-    Checkbox,
+    ProgressBar,
+    RichLog,
+    Static,
     TabbedContent,
     TabPane,
-    RichLog,
 )
-from textual.binding import Binding
-from textual.worker import Worker
-from rich.text import Text
-from rich.panel import Panel as RichPanel
-from loguru import logger
 
-from ..core.config_file import find_config_file, load_config
-from ..core.checkpoint import CheckpointManager, JobStatus
 from ..core.cache import CacheManager
-
+from ..core.checkpoint import CheckpointManager
+from ..core.config_file import find_config_file, load_config
 
 # =============================================================================
 # Dashboard Tab
 # =============================================================================
+
 
 class DashboardTab(Container):
     """Main dashboard showing real-time stats and progress."""
@@ -78,13 +69,15 @@ class DashboardTab(Container):
             stats = cache.stats()
             table = self.query_one("#cache-table", DataTable)
             table.clear()
-            table.add_rows([
-                ("Total Entries", str(stats.total_entries)),
-                ("Hits", str(stats.hit_count)),
-                ("Misses", str(stats.miss_count)),
-                ("Hit Rate", f"{stats.hit_rate:.1%}"),
-                ("DB Size", f"{stats.db_size_mb} MB"),
-            ])
+            table.add_rows(
+                [
+                    ("Total Entries", str(stats.total_entries)),
+                    ("Hits", str(stats.hit_count)),
+                    ("Misses", str(stats.miss_count)),
+                    ("Hit Rate", f"{stats.hit_rate:.1%}"),
+                    ("DB Size", f"{stats.db_size_mb} MB"),
+                ]
+            )
         except Exception as e:
             logger.error(f"Failed to refresh cache stats: {e}")
 
@@ -92,6 +85,7 @@ class DashboardTab(Container):
 # =============================================================================
 # Jobs Tab
 # =============================================================================
+
 
 class JobsTab(Container):
     """Tab for managing synthesis jobs."""
@@ -140,6 +134,7 @@ class JobsTab(Container):
 # Cache Tab
 # =============================================================================
 
+
 class CacheTab(Container):
     """Tab for inspecting the synthesis cache."""
 
@@ -163,7 +158,7 @@ class CacheTab(Container):
         """Refresh cache detail table."""
         try:
             cache = CacheManager(cache_dir=".cache")
-            with cache._get_conn() if hasattr(cache, "_get_conn") else _no_op():
+            with cache._get_conn() if hasattr(cache, "_get_conn") else _NoOp():
                 keys = cache.get_cached_keys()
 
             table = self.query_one("#cache-detail-table", DataTable)
@@ -184,9 +179,10 @@ class CacheTab(Container):
             logger.error(f"Failed to refresh cache: {e}")
 
 
-class _no_op:
+class _NoOp:
     def __enter__(self):
         return self
+
     def __exit__(self, *args):
         return False
 
@@ -194,6 +190,7 @@ class _no_op:
 # =============================================================================
 # Config Tab
 # =============================================================================
+
 
 class ConfigTab(Container):
     """Tab for viewing configuration."""
@@ -221,14 +218,14 @@ class ConfigTab(Container):
                 content_widget.update(f"[red]Error loading config: {e}[/red]")
         else:
             content_widget.update(
-                "[yellow]No config file found.[/yellow]\n\n"
-                "Run [cyan]distill-align init[/cyan] to create one."
+                "[yellow]No config file found.[/yellow]\n\nRun [cyan]distill-align init[/cyan] to create one."
             )
 
 
 # =============================================================================
 # Logs Tab
 # =============================================================================
+
 
 class LogsTab(Container):
     """Tab for viewing live logs."""
@@ -242,6 +239,7 @@ class LogsTab(Container):
 # =============================================================================
 # Main App
 # =============================================================================
+
 
 class DistillAlignApp(App):
     """Main TUI application."""
@@ -317,7 +315,7 @@ class DistillAlignApp(App):
         if log_view:
             log_view.write("[green]✓[/green] Distill-Align TUI started")
             log_view.write(f"[cyan]i[/cyan] Working directory: {Path.cwd()}")
-            log_view.write(f"[cyan]i[/cyan] Press [yellow]q[/yellow] to quit, [yellow]r[/yellow] to refresh")
+            log_view.write("[cyan]i[/cyan] Press [yellow]q[/yellow] to quit, [yellow]r[/yellow] to refresh")
 
     def auto_refresh(self) -> None:
         """Periodic auto-refresh of stats."""

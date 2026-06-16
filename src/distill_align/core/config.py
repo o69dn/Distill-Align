@@ -5,7 +5,6 @@ Loads configuration from environment variables and .env files.
 """
 
 from pathlib import Path
-from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -29,8 +28,8 @@ class Settings(BaseSettings):
     # Synthesis
     llm_provider: str = "openai"  # openai, ollama, vllm
     llm_model: str = "gpt-4o"
-    llm_base_url: Optional[str] = None
-    llm_api_key: Optional[str] = None
+    llm_base_url: str | None = None
+    llm_api_key: str | None = None
     llm_max_concurrency: int = Field(default=5, ge=1)
     llm_max_rpm: int = Field(default=60, ge=1)
     llm_retry_attempts: int = Field(default=5, ge=1)
@@ -71,7 +70,7 @@ class Settings(BaseSettings):
 
 
 # Global settings instance
-_settings: Optional[Settings] = None
+_settings: Settings | None = None
 
 
 def get_settings() -> Settings:

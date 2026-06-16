@@ -4,15 +4,13 @@ Dataset card generator.
 Auto-generates HuggingFace-style dataset cards with metadata, statistics, and description.
 """
 
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from loguru import logger
 
-from .validator import ValidationReport
 from ..core.schemas import ConversationSchema
-
+from .validator import ValidationReport
 
 DATASET_CARD_TEMPLATE = """---
 # Dataset Card Metadata
@@ -127,10 +125,10 @@ class DatasetCardGenerator:
 
     def generate(
         self,
-        conversations: List[ConversationSchema],
-        validation_report: Optional[ValidationReport] = None,
-        config: Optional[Dict[str, Any]] = None,
-        output_path: Optional[str | Path] = None,
+        conversations: list[ConversationSchema],
+        validation_report: ValidationReport | None = None,
+        config: dict[str, Any] | None = None,
+        output_path: str | Path | None = None,
     ) -> str:
         """
         Generate a dataset card.
@@ -184,10 +182,7 @@ class DatasetCardGenerator:
         scaffold = cfg.get("scaffold", True)
 
         # Validation summary
-        if validation_report:
-            validation_summary = validation_report.summary()
-        else:
-            validation_summary = "No validation report available."
+        validation_summary = validation_report.summary() if validation_report else "No validation report available."
 
         # Render
         card = DATASET_CARD_TEMPLATE.format(
@@ -211,7 +206,6 @@ class DatasetCardGenerator:
             duplicate_count=duplicate_count,
             unique_count=unique_count,
             filler_ratio=filler_ratio,
-            provider=provider,
             model=model,
             temperature=temperature,
             socratic_enabled=socratic,

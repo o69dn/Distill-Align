@@ -4,13 +4,10 @@ OpenAI-compatible LLM client.
 Supports OpenAI API and compatible endpoints (vLLM, Ollama with OpenAI compatibility mode).
 """
 
-from typing import List, Dict, Any, Optional
-
 import httpx
-from loguru import logger
 
+from ...core.exceptions import LLMClientError, ModelNotFoundError, RateLimitError
 from .base import BaseLLMClient, LLMMessage, LLMResponse
-from ...core.exceptions import LLMClientError, RateLimitError, ModelNotFoundError
 
 
 class OpenAIClient(BaseLLMClient):
@@ -19,7 +16,7 @@ class OpenAIClient(BaseLLMClient):
     def __init__(
         self,
         base_url: str = "https://api.openai.com/v1",
-        api_key: Optional[str] = None,
+        api_key: str | None = None,
         model: str = "gpt-4o",
         timeout: float = 120.0,
         max_retries: int = 3,
@@ -35,7 +32,7 @@ class OpenAIClient(BaseLLMClient):
             max_retries: Maximum number of retries.
         """
         super().__init__(base_url, api_key, model, timeout, max_retries)
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""
@@ -58,9 +55,9 @@ class OpenAIClient(BaseLLMClient):
 
     async def chat(
         self,
-        messages: List[LLMMessage],
+        messages: list[LLMMessage],
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> LLMResponse:
         """
@@ -113,19 +110,19 @@ class OpenAIClient(BaseLLMClient):
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
-                raise RateLimitError("Rate limit exceeded")
+                raise RateLimitError("Rate limit exceeded") from e
             elif e.response.status_code == 404:
-                raise ModelNotFoundError(f"Model not found: {self.model}")
+                raise ModelNotFoundError(f"Model not found: {self.model}") from e
             else:
-                raise LLMClientError(f"API error: {e.response.status_code} - {e.response.text}")
+                raise LLMClientError(f"API error: {e.response.status_code} - {e.response.text}") from e
         except Exception as e:
-            raise LLMClientError(f"Request failed: {e}")
+            raise LLMClientError(f"Request failed: {e}") from e
 
     async def complete(
         self,
         prompt: str,
         temperature: float = 0.7,
-        max_tokens: Optional[int] = None,
+        max_tokens: int | None = None,
         **kwargs,
     ) -> LLMResponse:
         """
@@ -175,10 +172,10 @@ class OpenAIClient(BaseLLMClient):
 
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
-                raise RateLimitError("Rate limit exceeded")
+                raise RateLimitError("Rate limit exceeded") from e
             elif e.response.status_code == 404:
-                raise ModelNotFoundError(f"Model not found: {self.model}")
+                raise ModelNotFoundError(f"Model not found: {self.model}") from e
             else:
-                raise LLMClientError(f"API error: {e.response.status_code} - {e.response.text}")
+                raise LLMClientError(f"API error: {e.response.status_code} - {e.response.text}") from e
         except Exception as e:
-            raise LLMClientError(f"Request failed: {e}")
+            raise LLMClientError(f"Request failed: {e}") from e

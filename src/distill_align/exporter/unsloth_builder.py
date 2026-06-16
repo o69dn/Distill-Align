@@ -5,14 +5,12 @@ Auto-generates optimized Unsloth FastModel training scripts.
 """
 
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any
 
-from loguru import logger
 from jinja2 import Template
+from loguru import logger
 
 from ..core.schemas import ExportConfig
-from ..core.exceptions import UnslothConfigError
-
 
 # Unsloth training script template
 UNSLOTH_TRAIN_TEMPLATE = Template('''"""
@@ -162,7 +160,7 @@ class UnslothConfigBuilder:
         "gemma": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
     }
 
-    def __init__(self, config: Optional[ExportConfig] = None):
+    def __init__(self, config: ExportConfig | None = None):
         """
         Initialize the Unsloth config builder.
 
@@ -197,7 +195,11 @@ class UnslothConfigBuilder:
 
         # Prepare template variables
         _torch_available = torch is not None
-        _dtype = "bfloat16" if (_torch_available and torch.cuda.is_available() and torch.cuda.is_bf16_supported()) else "float16"
+        _dtype = (
+            "bfloat16"
+            if (_torch_available and torch.cuda.is_available() and torch.cuda.is_bf16_supported())
+            else "float16"
+        )
 
         template_vars = {
             "model_name": model_name,
@@ -251,7 +253,7 @@ class UnslothConfigBuilder:
         # Default to LLaMA-style modules
         return self.DEFAULT_TARGET_MODULES["llama"]
 
-    def generate_config(self, **kwargs) -> Dict[str, Any]:
+    def generate_config(self, **kwargs) -> dict[str, Any]:
         """
         Generate configuration dictionary.
 
