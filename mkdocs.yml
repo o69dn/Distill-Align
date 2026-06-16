@@ -1,0 +1,48 @@
+﻿site_name: Distill-Align
+site_description: "The Structured Reasoning Extraction Factory — Generate high-quality fine-tuning datasets from raw domain data"
+repo_url: https://github.com/o69dn/Distill-Align
+theme:
+  name: material
+  features:
+    - navigation.tabs
+    - navigation.sections
+    - navigation.expand
+    - content.code.copy
+    - content.code.annotate
+  palette:
+    - scheme: default
+      primary: indigo
+      accent: indigo
+nav:
+  - Home: index.md
+  - Getting Started: getting-started.md
+  - Configuration: configuration.md
+  - CLI Reference: cli-reference.md
+  - API Reference: api/
+  - Pipelines:
+    - Ingestion: pipelines/ingestion.md
+    - Synthesis: pipelines/synthesis.md
+    - Export: pipelines/export.md
+  - Guides:
+    - Best Practices: guides/best-practices.md
+    - Contributing: guides/contributing.md
+    - Troubleshooting: guides/troubleshooting.md
+  - Changelog: changelog.md
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+        python:
+          paths: [src]
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences
+  - pymdownx.tabbed
+  - pymdownx.details
+  - toc:
+      permalink: true
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/o69dn/Distill-Align

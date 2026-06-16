@@ -108,6 +108,15 @@ wandb/
 *.pth
 *.onnx
 
+# Temp / generated debris
+_gen*.py
+_write*.py
+_append*.py
+debug_*.py
+_test*.txt
+_output.txt
+_pytest.txt
+
 # Ruff
 .ruff_cache/
 

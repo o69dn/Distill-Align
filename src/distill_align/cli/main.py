@@ -55,10 +55,11 @@ def main(
     ctx: typer.Context,
     log_level: str = typer.Option("INFO", "--log-level", "-l", help="Logging level"),
     log_file: str | None = typer.Option(None, "--log-file", help="Log file path"),
+    log_format: str = typer.Option("text", "--log-format", help="Log format: text or json"),
     config_file: str | None = typer.Option(None, "--config", "-c", help="Path to config file"),
 ):
     """Distill-Align: Generate fine-tuning datasets from raw domain data."""
-    setup_logging(log_level=log_level, log_file=log_file)
+    setup_logging(log_level=log_level, log_file=log_file, log_format=log_format)
     ctx.obj = {"config_file": config_file}
 
 
@@ -69,8 +70,10 @@ def ingest(
     output: str = typer.Option("./chunks.json", "--output", "-o", help="Output file path"),
     chunk_size: int = typer.Option(1000, "--chunk-size", "-s", help="Chunk size in characters"),
     chunk_overlap: int = typer.Option(200, "--overlap", help="Chunk overlap in characters"),
-    recursive: bool = typer.Option(True, "--recursive/--no-recursive", "-r", help="Search subdirectories"),
-    auto_detect: bool = typer.Option(True, "--auto/--no-auto", help="Auto-detect file types"),
+    recursive: bool = typer.Option(
+        True, "--recursive/--no-recursive", "-r", flag_value=True, help="Search subdirectories"
+    ),
+    auto_detect: bool = typer.Option(True, "--auto/--no-auto", flag_value=True, help="Auto-detect file types"),
 ):
     """Ingest files and split into semantic chunks."""
     from ..ingestion.auto import AutoIngestionPipeline
@@ -142,9 +145,9 @@ def synthesize(
     concurrency: int = typer.Option(5, "--concurrency", "-c", help="Max concurrent requests"),
     rpm: int = typer.Option(60, "--rpm", help="Max requests per minute"),
     job_id: str | None = typer.Option(None, "--job-id", help="Job ID for resume support"),
-    resume: bool = typer.Option(False, "--resume", help="Resume a previous job"),
-    no_cache: bool = typer.Option(False, "--no-cache", help="Disable caching"),
-    no_checkpoint: bool = typer.Option(False, "--no-checkpoint", help="Disable checkpointing"),
+    resume: bool = typer.Option(False, "--resume", flag_value=True, help="Resume a previous job"),
+    no_cache: bool = typer.Option(False, "--no-cache", flag_value=True, help="Disable caching"),
+    no_checkpoint: bool = typer.Option(False, "--no-checkpoint", flag_value=True, help="Disable checkpointing"),
     prompt_dir: str | None = typer.Option(None, "--prompts", help="Custom prompts directory"),
     mode: str = typer.Option("default", "--mode", help="Conversation mode: default, teach, debug, review, qa, explain"),
 ):
@@ -257,9 +260,9 @@ def export(
     formats: str = typer.Option("sharegpt", "--format", "-f", help="Export formats (comma-separated)"),
     output_dir: str = typer.Option("./output", "--output-dir", "-o", help="Output directory"),
     model_name: str = typer.Option("unsloth/Meta-Llama-3.1-8B-Instruct", "--model", help="Unsloth model name"),
-    no_unsloth: bool = typer.Option(False, "--no-unsloth", help="Skip Unsloth script generation"),
-    split: bool = typer.Option(False, "--split", help="Split into train/val/test"),
-    card: bool = typer.Option(False, "--card", help="Generate dataset card"),
+    no_unsloth: bool = typer.Option(False, "--no-unsloth", flag_value=True, help="Skip Unsloth script generation"),
+    split: bool = typer.Option(False, "--split", flag_value=True, help="Split into train/val/test"),
+    card: bool = typer.Option(False, "--card", flag_value=True, help="Generate dataset card"),
 ):
     """Export conversations to training formats."""
     from ..core.schemas import ConversationSchema
@@ -314,7 +317,7 @@ def export(
 @app.command()
 def validate(
     input: str = typer.Argument(..., help="Input conversations JSON file"),
-    dedupe: bool = typer.Option(True, "--dedupe/--no-dedupe", help="Remove duplicates"),
+    dedupe: bool = typer.Option(True, "--dedupe/--no-dedupe", flag_value=True, help="Remove duplicates"),
     output: str | None = typer.Option(None, "--output", "-o", help="Save report to file"),
 ):
     """Validate and analyze a dataset."""
@@ -455,7 +458,7 @@ def jobs_resume(
 @jobs_app.command("delete")
 def jobs_delete(
     job_id: str = typer.Argument(..., help="Job ID to delete"),
-    force: bool = typer.Option(False, "--force", "-f", help="Skip confirmation"),
+    force: bool = typer.Option(False, "--force", "-f", flag_value=True, help="Skip confirmation"),
 ):
     """Delete a job checkpoint."""
     from ..core.checkpoint import CheckpointManager

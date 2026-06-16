@@ -46,6 +46,15 @@ tiktoken = ">=0.7.0"
 # Loaders
 python-docx = ">=1.1.0"
 beautifulsoup4 = ">=4.12.0"
+# Optional: HuggingFace Hub support
+huggingface_hub = {version = "^0.23.0", optional = true}
+click = "8.1.8"
+
+[tool.poetry.extras]
+hub = ["huggingface_hub"]
+web = []
+judge = []
+all = ["huggingface_hub"]
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.2.0"
@@ -56,6 +65,12 @@ mypy = "^1.10.0"
 ruff = "^0.4.0"
 mkdocs = "^1.6.0"
 mkdocs-material = "^9.5.0"
+
+[tool.poetry.group.benchmark.dependencies]
+pytest-benchmark = "^4.0"
+
+[tool.poetry.group.property.dependencies]
+hypothesis = "^6.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -96,7 +111,12 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short"
+addopts = "-v --tb=short --cov=distill_align --cov-report=term-missing --cov-report=xml --cov-report=html"
+
+# Bandit Configuration
+[tool.bandit]
+exclude_dirs = ["tests", ".github"]
+skips = ["B101", "B311"]
 
 # MyPy Configuration
 [tool.mypy]

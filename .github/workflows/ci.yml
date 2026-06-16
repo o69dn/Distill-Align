@@ -71,6 +71,7 @@ jobs:
           poetry install --no-interaction
       - name: Run tests
         run: pytest tests/ --tb=short -q
+      # Codecov upload removed — optional, needs CODECOV_TOKEN secret
 
   build:
     name: Build Package
