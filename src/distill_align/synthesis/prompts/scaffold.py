@@ -2,105 +2,87 @@
 Scaffold Action prompt templates.
 
 Extracts pure tool-calling or structural markdown output from conversational content.
+Supports loading from external .j2 template files.
 """
 
-from typing import Dict, Any, List
+from pathlib import Path
+from typing import Any, Dict, Optional
 
 from jinja2 import Template
 
 
-# System prompt for the Scaffold Action
-SCAFFOLD_SYSTEM_PROMPT = """You are an expert at extracting structured, actionable content from conversational text. Your task is to transform verbose, conversational responses into clean, structured formats suitable for fine-tuning.
-
-Guidelines:
-1. Remove conversational filler (e.g., "Sure!", "Of course!", "Here's...")
-2. Extract the core technical content
-3. Preserve code blocks, commands, and structured data
-4. Maintain logical flow and organization
-5. Output in clean Markdown or JSON format
-
-Your output should be a JSON object with:
-{
-    "extracted_content": "The clean, structured content",
-    "extraction_type": "markdown|code|tool_call|mixed",
-    "confidence": 0.0-1.0
-}"""
+# Default templates directory
+_TEMPLATES_DIR = Path(__file__).parent / "scaffold"
 
 
-# Template for extracting structured content
-SCAFFOLD_USER_TEMPLATE = Template("""Extract the structured, actionable content from the following text.
+def _load_template(name: str, custom_dir: Optional[Path] = None) -> Template:
+    """
+    Load a Jinja2 template from file.
 
-**Original Text:**
-{{ content }}
+    Args:
+        name: Template filename.
+        custom_dir: Optional custom directory to search first.
 
-**Context:**
-{% if source_type %}**Source Type:** {{ source_type }}{% endif %}
-{% if expected_format %}**Expected Format:** {{ expected_format }}{% endif %}
+    Returns:
+        Jinja2 Template object.
+    """
+    if custom_dir:
+        custom_path = custom_dir / name
+        if custom_path.exists():
+            return Template(custom_path.read_text(encoding="utf-8"))
 
-**Instructions:**
-1. Remove all conversational filler and pleasantries
-2. Extract the core technical content
-3. Preserve code blocks, commands, and structured data exactly
-4. Output in clean, organized format
-5. Assign a confidence score (0.0-1.0) to your extraction
+    default_path = _TEMPLATES_DIR / name
+    if default_path.exists():
+        return Template(default_path.read_text(encoding="utf-8"))
 
-Output a JSON object with the extracted content.""")
-
-
-# Template for tool-calling extraction
-SCAFFOLD_TOOL_TEMPLATE = Template("""Extract tool calls and structured actions from the following text.
-
-**Original Text:**
-{{ content }}
-
-**Instructions:**
-1. Identify any tool calls, commands, or API calls mentioned
-2. Extract the tool name, parameters, and expected output
-3. Format as a structured tool call schema
-4. Remove any surrounding explanation or commentary
-
-Output a JSON object with the extracted tool calls.""")
+    raise FileNotFoundError(f"Template not found: {name}")
 
 
-# Template for code extraction
-SCAFFOLD_CODE_TEMPLATE = Template("""Extract and clean code from the following text.
+def get_system_prompt(custom_dir: Optional[Path] = None) -> str:
+    """
+    Get the Scaffold system prompt.
 
-**Original Text:**
-{{ content }}
+    Args:
+        custom_dir: Optional custom templates directory.
 
-{% if language %}**Language:** {{ language }}{% endif %}
-
-**Instructions:**
-1. Extract all code blocks
-2. Remove explanatory text between code blocks
-3. Preserve comments within code
-4. Ensure code is syntactically valid
-5. If multiple code blocks are related, combine them logically
-
-Output a JSON object with the extracted code.""")
+    Returns:
+        System prompt string.
+    """
+    template = _load_template("system.j2", custom_dir)
+    return template.render()
 
 
-def render_scaffold_prompt(content: str, metadata: Dict[str, Any]) -> str:
+def render_scaffold_prompt(
+    content: str,
+    metadata: Dict[str, Any],
+    custom_dir: Optional[str | Path] = None,
+) -> str:
     """
     Render a Scaffold Action prompt.
 
     Args:
         content: Content to extract from.
         metadata: Content metadata.
+        custom_dir: Optional custom templates directory.
 
     Returns:
         Rendered prompt string.
     """
     extraction_type = metadata.get("extraction_type", "auto")
+    custom_path = Path(custom_dir) if custom_dir else None
 
     if extraction_type == "tool_call":
-        template = SCAFFOLD_TOOL_TEMPLATE
+        template = _load_template("tool_call.j2", custom_path)
     elif extraction_type == "code":
-        template = SCAFFOLD_CODE_TEMPLATE
+        template = _load_template("code_extract.j2", custom_path)
     else:
-        template = SCAFFOLD_USER_TEMPLATE
+        template = _load_template("system.j2", custom_path)
 
     return template.render(
         content=content,
         **metadata,
     )
+
+
+# Backward compatibility
+SCAFFOLD_SYSTEM_PROMPT = get_system_prompt()

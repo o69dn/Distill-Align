@@ -1,11 +1,11 @@
 """
 Export pipeline orchestrator.
 
-Handles the full export workflow: formatting conversations and generating Unsloth configs.
+Handles the full export workflow: validation, splitting, formatting, and Unsloth config.
 """
 
 from pathlib import Path
-from typing import List, Optional, Dict, Any
+from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
@@ -14,13 +14,20 @@ from ..core.exceptions import ExportError
 from .formatters.base import BaseFormatter
 from .formatters.sharegpt import ShareGPTFormatter
 from .formatters.alpaca import AlpacaFormatter
+from .formatters.chatml import ChatMLFormatter
+from .formatters.conversation import ConversationFormatter
 from .unsloth_builder import UnslothConfigBuilder
+from .validator import DatasetValidator, ValidationReport
+from .splitter import DatasetSplitter, DatasetSplit
+from .dataset_card import DatasetCardGenerator
 
 
 # Map format names to formatter classes
 FORMATTER_MAP: Dict[str, type[BaseFormatter]] = {
     "sharegpt": ShareGPTFormatter,
     "alpaca": AlpacaFormatter,
+    "chatml": ChatMLFormatter,
+    "conversation": ConversationFormatter,
 }
 
 
@@ -37,13 +44,16 @@ class ExportPipeline:
         self.config = config or ExportConfig()
         self._formatters: Dict[str, BaseFormatter] = {}
         self._unsloth_builder: Optional[UnslothConfigBuilder] = None
+        self._validator = DatasetValidator()
+        self._splitter = DatasetSplitter()
+        self._card_generator = DatasetCardGenerator()
 
     def _get_formatter(self, format_name: str) -> BaseFormatter:
         """
         Get or create a formatter for the specified format.
 
         Args:
-            format_name: Name of the format (e.g., "sharegpt", "alpaca").
+            format_name: Name of the format (e.g., "sharegpt", "alpaca", "chatml").
 
         Returns:
             Formatter instance.
@@ -52,23 +62,42 @@ class ExportPipeline:
             ExportError: If format is not supported.
         """
         if format_name not in FORMATTER_MAP:
-            raise ExportError(f"Unsupported format: {format_name}")
+            raise ExportError(
+                f"Unsupported format: {format_name}. "
+                f"Supported: {', '.join(FORMATTER_MAP.keys())}"
+            )
 
         if format_name not in self._formatters:
             self._formatters[format_name] = FORMATTER_MAP[format_name](self.config.output_dir)
-
         return self._formatters[format_name]
 
     def _get_unsloth_builder(self) -> UnslothConfigBuilder:
-        """
-        Get or create the Unsloth config builder.
-
-        Returns:
-            UnslothConfigBuilder instance.
-        """
+        """Get or create the Unsloth config builder."""
         if self._unsloth_builder is None:
             self._unsloth_builder = UnslothConfigBuilder(self.config)
         return self._unsloth_builder
+
+    def validate(
+        self,
+        conversations: List[ConversationSchema],
+        dedupe: bool = True,
+    ) -> tuple[List[ConversationSchema], ValidationReport]:
+        """
+        Validate and optionally deduplicate conversations.
+
+        Args:
+            conversations: List of conversations.
+            dedupe: Whether to remove duplicates.
+
+        Returns:
+            Tuple of (cleaned conversations, validation report).
+        """
+        if dedupe:
+            conversations = self._validator.deduplicate(conversations)
+
+        report = self._validator.validate(conversations)
+        logger.info(f"Validation: {len(conversations)} conversations, score={report.quality_score:.2f}")
+        return conversations, report
 
     def export(
         self,
@@ -76,23 +105,46 @@ class ExportPipeline:
         formats: Optional[List[str]] = None,
         dataset_filename: str = "dataset",
         generate_unsloth: bool = True,
+        split: bool = False,
+        generate_card: bool = False,
         **unsloth_kwargs,
     ) -> Dict[str, Path]:
         """
         Export conversations to specified formats.
 
         Args:
-            conversations: List of conversations to export.
+            conversations: List of conversations.
             formats: List of format names (defaults to config).
             dataset_filename: Base filename for datasets.
-            generate_unsloth: Whether to generate Unsloth training script.
-            **unsloth_kwargs: Additional kwargs for Unsloth config.
+            generate_unsloth: Whether to generate Unsloth script.
+            split: Whether to split into train/val/test.
+            generate_card: Whether to generate dataset card.
+            **unsloth_kwargs: Additional Unsloth config.
 
         Returns:
             Dictionary mapping format names to output file paths.
         """
         if formats is None:
             formats = self.config.export_formats
+
+        # Validate first
+        conversations, validation_report = self.validate(conversations)
+
+        # Optional split
+        if split:
+            split_result = self._splitter.split(
+                conversations,
+                train_ratio=0.9,
+                val_ratio=0.05,
+                test_ratio=0.05,
+            )
+            split_paths = self._splitter.save_split(
+                split_result, self.config.output_dir, dataset_filename
+            )
+            # Use train split as the primary dataset for training
+            conversations = split_result.train
+        else:
+            split_paths = {}
 
         output_files = {}
 
@@ -108,11 +160,13 @@ class ExportPipeline:
                 logger.error(f"Failed to export to {format_name}: {e}")
                 raise ExportError(f"Export to {format_name} failed: {e}")
 
+        # Add split files to output
+        output_files.update(split_paths)
+
         # Generate Unsloth script
         if generate_unsloth and self.config.generate_unsloth_script:
             try:
                 builder = self._get_unsloth_builder()
-                # Use the first format's output as the dataset path
                 dataset_path = str(list(output_files.values())[0])
                 script_path = builder.generate_script(
                     dataset_path=dataset_path,
@@ -124,29 +178,38 @@ class ExportPipeline:
             except Exception as e:
                 logger.warning(f"Failed to generate Unsloth script: {e}")
 
+        # Generate dataset card
+        if generate_card:
+            try:
+                card_path = Path(self.config.output_dir) / f"{dataset_filename}_README.md"
+                self._card_generator.generate(
+                    conversations=conversations,
+                    validation_report=validation_report,
+                    config=unsloth_kwargs.get("synthesis_config", {}),
+                    output_path=card_path,
+                )
+                output_files["dataset_card"] = card_path
+            except Exception as e:
+                logger.warning(f"Failed to generate dataset card: {e}")
+
         return output_files
 
     def validate_export(self, output_files: Dict[str, Path]) -> Dict[str, bool]:
-        """
-        Validate exported files.
-
-        Args:
-            output_files: Dictionary of format names to file paths.
-
-        Returns:
-            Dictionary of format names to validation results.
-        """
+        """Validate exported files."""
         results = {}
 
         for format_name, file_path in output_files.items():
-            if format_name == "unsloth_script":
-                # Validate Python syntax
-                try:
-                    with open(file_path, "r") as f:
-                        compile(f.read(), file_path, "exec")
-                    results[format_name] = True
-                except SyntaxError:
-                    results[format_name] = False
+            if format_name in {"unsloth_script", "dataset_card"} or "_" not in format_name:
+                # Validate Python syntax or just check existence
+                if file_path.suffix == ".py":
+                    try:
+                        with open(file_path, "r") as f:
+                            compile(f.read(), file_path, "exec")
+                        results[format_name] = True
+                    except SyntaxError:
+                        results[format_name] = False
+                else:
+                    results[format_name] = file_path.exists()
             elif format_name in FORMATTER_MAP:
                 try:
                     formatter = self._get_formatter(format_name)
@@ -160,15 +223,7 @@ class ExportPipeline:
         return results
 
     def get_export_stats(self, output_files: Dict[str, Path]) -> Dict[str, Any]:
-        """
-        Get statistics about exported files.
-
-        Args:
-            output_files: Dictionary of format names to file paths.
-
-        Returns:
-            Dictionary of statistics.
-        """
+        """Get statistics about exported files."""
         stats = {}
 
         for format_name, file_path in output_files.items():
@@ -180,7 +235,7 @@ class ExportPipeline:
                 }
 
                 # Count entries for JSON files
-                if format_name in FORMATTER_MAP and format_name != "unsloth_script":
+                if format_name in FORMATTER_MAP:
                     try:
                         import json
                         with open(file_path, "r") as f:

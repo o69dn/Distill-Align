@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  distill-align:
+    build: .
+    image: distill-align:latest
+    container_name: distill-align
+    volumes:
+      - ./data:/app/data
+      - ./output:/app/output
+      - ./.cache:/app/.cache
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    command: ["/bin/sh", "-c", "distill-align status && /bin/bash"]
+    stdin_open: true
+    tty: true
+
+  # Optional: local Ollama server for inference
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    volumes:
+      - ollama_data:/root/.ollama
+    ports:
+      - "11434:11434"
+    profiles: ["local"]
+
+volumes:
+  ollama_data:

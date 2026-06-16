@@ -2,96 +2,88 @@
 Socratic Transformer prompt templates.
 
 Converts raw content into guided, conversational multi-turn Q&A schemas.
+Supports loading from external .j2 template files.
 """
 
-from typing import Dict, Any, List
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-from jinja2 import Template
-
-
-# System prompt for the Socratic Transformer
-SOCRATIC_SYSTEM_PROMPT = """You are an expert educator and Socratic questioner. Your task is to transform raw technical content into a guided, multi-turn conversation that teaches the material through questions and answers.
-
-Guidelines:
-1. Break down complex concepts into digestible pieces
-2. Ask probing questions that lead to deeper understanding
-3. Provide clear, concise answers that build on previous context
-4. Include reasoning traces showing your thought process
-5. Use examples and analogies when helpful
-6. Maintain a natural, conversational flow
-
-Your output should be a JSON object with the following structure:
-{
-    "conversation": [
-        {"role": "system", "content": "..."},
-        {"role": "user", "content": "..."},
-        {"role": "assistant", "content": "..."}
-    ],
-    "reasoning_trace": "Your detailed reasoning about how to structure this conversation..."
-}"""
+from jinja2 import Environment, FileSystemLoader, Template
 
 
-# Template for generating Socratic conversations
-SOCRATIC_USER_TEMPLATE = Template("""Transform the following content into a Socratic multi-turn conversation.
-
-**Source Content:**
-{{ content }}
-
-**Source Type:** {{ source_type }}
-{% if title %}**Title:** {{ title }}{% endif %}
-{% if language %}**Language:** {{ language }}{% endif %}
-{% if section_headers %}**Sections:** {{ section_headers | join(' > ') }}{% endif %}
-
-**Instructions:**
-1. Create a system prompt that sets up the teaching context
-2. Generate 3-5 user questions that progressively explore the topic
-3. Provide detailed assistant answers that teach the concepts
-4. Include your reasoning trace explaining your pedagogical choices
-
-Output a JSON object with the conversation and reasoning trace.""")
+# Default templates directory (alongside this file)
+_TEMPLATES_DIR = Path(__file__).parent / "socratic"
 
 
-# Template for code-specific Socratic conversations
-SOCRATIC_CODE_TEMPLATE = Template("""Transform the following code into a Socratic teaching conversation.
+def _load_template(name: str, custom_dir: Optional[Path] = None) -> Template:
+    """
+    Load a Jinja2 template from file.
 
-**Source Code ({{ language }}):**
-```{{ language }}
-{{ content }}
-```
+    Args:
+        name: Template filename (e.g., "system.j2", "code.j2").
+        custom_dir: Optional custom directory to search first.
 
-**Module:** {{ module_path }}
-{% if functions %}**Functions:** {{ functions | join(', ') }}{% endif %}
-{% if classes %}**Classes:** {{ classes | join(', ') }}{% endif %}
+    Returns:
+        Jinja2 Template object.
+    """
+    # Try custom directory first
+    if custom_dir:
+        custom_path = custom_dir / name
+        if custom_path.exists():
+            return Template(custom_path.read_text(encoding="utf-8"))
 
-**Instructions:**
-1. Create a system prompt for teaching this code
-2. Ask questions about the code's purpose, structure, and implementation
-3. Explain the code line-by-line when answering
-4. Discuss design patterns and best practices
-5. Include your reasoning about how to teach this code effectively
+    # Fall back to default directory
+    default_path = _TEMPLATES_DIR / name
+    if default_path.exists():
+        return Template(default_path.read_text(encoding="utf-8"))
 
-Output a JSON object with the conversation and reasoning trace.""")
+    raise FileNotFoundError(f"Template not found: {name}")
 
 
-def render_socratic_prompt(content: str, metadata: Dict[str, Any]) -> str:
+def get_system_prompt(custom_dir: Optional[Path] = None) -> str:
+    """
+    Get the Socratic system prompt.
+
+    Args:
+        custom_dir: Optional custom templates directory.
+
+    Returns:
+        System prompt string.
+    """
+    template = _load_template("system.j2", custom_dir)
+    return template.render()
+
+
+def render_socratic_prompt(
+    content: str,
+    metadata: Dict[str, Any],
+    custom_dir: Optional[str | Path] = None,
+) -> str:
     """
     Render a Socratic Transformer prompt.
 
     Args:
         content: Raw content to transform.
         metadata: Content metadata (source_type, title, language, etc.).
+        custom_dir: Optional custom templates directory.
 
     Returns:
         Rendered prompt string.
     """
     source_type = metadata.get("source_type", "text")
+    custom_path = Path(custom_dir) if custom_dir else None
 
+    # Select template based on source type
     if source_type == "code":
-        template = SOCRATIC_CODE_TEMPLATE
+        template = _load_template("code.j2", custom_path)
     else:
-        template = SOCRATIC_USER_TEMPLATE
+        template = _load_template("markdown.j2", custom_path)
 
     return template.render(
         content=content,
         **metadata,
     )
+
+
+# Backward compatibility: keep the old constants for direct import
+SOCRATIC_SYSTEM_PROMPT = get_system_prompt()

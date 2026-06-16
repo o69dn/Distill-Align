@@ -1,0 +1,19 @@
+Transform the following code into a Socratic teaching conversation.
+
+**Source Code ({{ language }}):**
+```{{ language }}
+{{ content }}
+```
+
+**Module:** {{ module_path }}
+{% if functions %}**Functions:** {{ functions | join(', ') }}{% endif %}
+{% if classes %}**Classes:** {{ classes | join(', ') }}{% endif %}
+
+**Instructions:**
+1. Create a system prompt for teaching this code
+2. Ask questions about the code's purpose, structure, and implementation
+3. Explain the code line-by-line when answering
+4. Discuss design patterns and best practices
+5. Include your reasoning about how to teach this code effectively
+
+Output a JSON object with the conversation and reasoning trace.

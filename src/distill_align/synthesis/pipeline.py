@@ -3,54 +3,64 @@ Synthesis pipeline orchestrator.
 
 Handles the full synthesis workflow: processing chunks through LLMs, applying Socratic
 Transformer and Scaffold Action pipelines, and outputting structured conversations.
+
+Supports:
+- Checkpoint-based resume for crash recovery
+- Cache-aware processing (skip already-synthesized chunks)
+- Job tracking with statistics
 """
 
 import asyncio
-import json
 import uuid
-from typing import List, Optional, Dict, Any, Callable
+from typing import Any, Callable, Dict, List, Optional
 
 from loguru import logger
 
-from ..core.schemas import (
-    DataChunk,
-    ConversationSchema,
-    SynthesizedTurn,
-    SynthesisConfig,
-)
+from ..core.cache import CacheManager
+from ..core.checkpoint import CheckpointManager, JobStatus
 from ..core.exceptions import SynthesisError
-from .models.base import BaseLLMClient, LLMMessage
-from .models.openai import OpenAIClient
+from ..core.schemas import (
+    ConversationSchema,
+    DataChunk,
+    SynthesisConfig,
+    SynthesizedTurn,
+)
+from .models.base import BaseLLMClient
 from .models.ollama import OllamaClient
+from .models.openai import OpenAIClient
 from .models.vllm import VLLMClient
-from .worker import BatchWorker
-from .prompts.socratic import SOCRATIC_SYSTEM_PROMPT, render_socratic_prompt
-from .prompts.scaffold import SCAFFOLD_SYSTEM_PROMPT, render_scaffold_prompt
 from .pruner import ContentPruner
+from .prompts.scaffold import SCAFFOLD_SYSTEM_PROMPT, render_scaffold_prompt
+from .prompts.socratic import SOCRATIC_SYSTEM_PROMPT, render_socratic_prompt
+from .worker import BatchWorker
 
 
 class SynthesisPipeline:
     """Orchestrates the synthesis of DataChunks into structured conversations."""
 
-    def __init__(self, config: Optional[SynthesisConfig] = None):
+    def __init__(
+        self,
+        config: Optional[SynthesisConfig] = None,
+        cache_manager: Optional[CacheManager] = None,
+        checkpoint_manager: Optional[CheckpointManager] = None,
+    ):
         """
         Initialize the synthesis pipeline.
 
         Args:
-            config: Optional synthesis configuration. Uses defaults if not provided.
+            config: Optional synthesis configuration.
+            cache_manager: Optional cache manager for persistent caching.
+            checkpoint_manager: Optional checkpoint manager for resume support.
         """
         self.config = config or SynthesisConfig()
         self._client: Optional[BaseLLMClient] = None
         self._worker: Optional[BatchWorker] = None
         self._pruner = ContentPruner()
+        self._cache = cache_manager
+        self._checkpoint = checkpoint_manager
 
     def _get_client(self) -> BaseLLMClient:
-        """
-        Get or create the LLM client.
-
-        Returns:
-            LLM client instance.
-        """
+        """Get or create the LLM client."""
         if self._client is None:
             if self.config.llm_provider == "openai":
                 self._client = OpenAIClient(
@@ -70,16 +80,10 @@ class SynthesisPipeline:
                 )
             else:
                 raise SynthesisError(f"Unknown provider: {self.config.llm_provider}")
-
         return self._client
 
     def _get_worker(self) -> BatchWorker:
-        """
-        Get or create the batch worker.
-
-        Returns:
-            BatchWorker instance.
-        """
+        """Get or create the batch worker."""
         if self._worker is None:
             client = self._get_client()
             self._worker = BatchWorker(
@@ -87,6 +91,8 @@ class SynthesisPipeline:
                 max_concurrency=self.config.max_concurrency,
                 max_rpm=self.config.max_rpm,
                 retry_attempts=self.config.retry_attempts,
+                cache_manager=self._cache,
+                checkpoint_manager=self._checkpoint,
             )
         return self._worker
 
@@ -111,7 +117,6 @@ class SynthesisPipeline:
         chunk_id = chunk.id
         logger.debug(f"Synthesizing chunk {chunk_id}")
 
-        # Prepare metadata for prompts
         metadata = {
             "source_type": chunk.metadata.source_type,
             "title": chunk.metadata.title,
@@ -124,15 +129,15 @@ class SynthesisPipeline:
 
         conversation = None
 
-        # Step 1: Socratic Transformer (if enabled)
+        # Step 1: Socratic Transformer
         if self.config.socratic_enabled:
             conversation = await self._apply_socratic(chunk.content, metadata, llm_client)
 
-        # Step 2: Scaffold Action (if enabled)
+        # Step 2: Scaffold Action
         if self.config.scaffold_enabled and conversation:
             conversation = await self._apply_scaffold(conversation, metadata, llm_client)
 
-        # If neither pipeline ran, create a simple conversation
+        # Fallback: simple conversation
         if conversation is None:
             conversation = ConversationSchema(
                 id=str(uuid.uuid4()),
@@ -156,17 +161,7 @@ class SynthesisPipeline:
         metadata: Dict[str, Any],
         llm_client: BaseLLMClient,
     ) -> Optional[ConversationSchema]:
-        """
-        Apply the Socratic Transformer pipeline.
-
-        Args:
-            content: Raw content.
-            metadata: Content metadata.
-            llm_client: LLM client.
-
-        Returns:
-            ConversationSchema or None if parsing fails.
-        """
+        """Apply the Socratic Transformer pipeline."""
         user_prompt = render_socratic_prompt(content, metadata)
 
         try:
@@ -176,13 +171,11 @@ class SynthesisPipeline:
                 temperature=self.config.temperature,
             )
 
-            # Parse response
             parsed = self._pruner.extract_json_from_response(response)
             if not parsed or "conversation" not in parsed:
                 logger.warning("Failed to parse Socratic response")
                 return None
 
-            # Convert to ConversationSchema
             turns = [
                 SynthesizedTurn(role=t["role"], content=t["content"])
                 for t in parsed["conversation"]
@@ -190,7 +183,7 @@ class SynthesisPipeline:
 
             return ConversationSchema(
                 id=str(uuid.uuid4()),
-                source_chunk_id="",  # Will be set by caller
+                source_chunk_id="",
                 turns=turns,
                 reasoning_trace=parsed.get("reasoning_trace"),
             )
@@ -205,34 +198,21 @@ class SynthesisPipeline:
         metadata: Dict[str, Any],
         llm_client: BaseLLMClient,
     ) -> ConversationSchema:
-        """
-        Apply the Scaffold Action pipeline to clean assistant responses.
-
-        Args:
-            conversation: Input conversation.
-            metadata: Content metadata.
-            llm_client: LLM client.
-
-        Returns:
-            Cleaned ConversationSchema.
-        """
+        """Apply the Scaffold Action pipeline to clean assistant responses."""
         cleaned_turns = []
 
         for turn in conversation.turns:
             if turn.role == "assistant":
-                # Apply scaffold to assistant responses
                 user_prompt = render_scaffold_prompt(
                     turn.content,
                     {**metadata, "extraction_type": "auto"},
                 )
-
                 try:
                     response = await llm_client.generate(
                         system_prompt=SCAFFOLD_SYSTEM_PROMPT,
                         user_prompt=user_prompt,
-                        temperature=0.3,  # Lower temperature for extraction
+                        temperature=0.3,
                     )
-
                     parsed = self._pruner.extract_json_from_response(response)
                     if parsed and "extracted_content" in parsed:
                         cleaned_turns.append(SynthesizedTurn(
@@ -240,9 +220,7 @@ class SynthesisPipeline:
                             content=parsed["extracted_content"],
                         ))
                     else:
-                        # Keep original if parsing fails
                         cleaned_turns.append(turn)
-
                 except Exception as e:
                     logger.warning(f"Scaffold failed for turn, keeping original: {e}")
                     cleaned_turns.append(turn)
@@ -261,6 +239,8 @@ class SynthesisPipeline:
         self,
         chunks: List[DataChunk],
         progress_callback: Optional[Callable[[int, int], None]] = None,
+        job_id: Optional[str] = None,
+        resume: bool = False,
     ) -> List[ConversationSchema]:
         """
         Synthesize a batch of chunks into conversations.
@@ -268,16 +248,35 @@ class SynthesisPipeline:
         Args:
             chunks: List of DataChunks to synthesize.
             progress_callback: Optional callback for progress updates.
+            job_id: Optional job ID for checkpointing/resume.
+            resume: Whether to resume an existing job.
 
         Returns:
             List of ConversationSchema objects.
         """
         worker = self._get_worker()
 
+        # Create or resume checkpoint
+        if self._checkpoint and job_id:
+            if resume:
+                checkpoint = self._checkpoint.load_job(job_id)
+                if checkpoint:
+                    logger.info(f"Resuming job {job_id}: {checkpoint.processed_items}/{checkpoint.total_items} done")
+                    # Filter out already-processed chunks
+                    processed_set = set(checkpoint.processed_ids)
+                    chunks = [c for c in chunks if c.id not in processed_set]
+                    logger.info(f"Processing {len(chunks)} remaining chunks")
+                else:
+                    logger.warning(f"Job {job_id} not found, starting fresh")
+                    self._checkpoint.create_job("synthesize", total_items=len(chunks), job_id=job_id)
+            else:
+                self._checkpoint.create_job("synthesize", total_items=len(chunks), job_id=job_id)
+
+            self._checkpoint.start_job(job_id)
+
         # Prepare items for worker
         items = [{"id": chunk.id, "chunk": chunk} for chunk in chunks]
 
-        # Define processor function
         async def processor(item: Dict[str, Any], llm_client: BaseLLMClient) -> Dict[str, Any]:
             chunk = item["chunk"]
             conversation = await self.synthesize_chunk(chunk, llm_client)
@@ -287,6 +286,7 @@ class SynthesisPipeline:
         results = await worker.run_batch(
             items=items,
             processor_fn=processor,
+            job_id=job_id,
             progress_callback=progress_callback,
         )
 
@@ -298,6 +298,14 @@ class SynthesisPipeline:
                 conversations.append(ConversationSchema(**conv_data))
             else:
                 logger.warning(f"Failed to synthesize: {result.get('error')}")
+
+        # Complete checkpoint
+        if self._checkpoint and job_id:
+            stats = worker.get_stats()
+            if worker.stats["failed"] == 0:
+                self._checkpoint.complete_job(job_id, stats=stats)
+            else:
+                self._checkpoint.fail_job(job_id, error=f"{worker.stats['failed']} items failed")
 
         logger.info(f"Synthesized {len(conversations)} conversations from {len(chunks)} chunks")
         return conversations

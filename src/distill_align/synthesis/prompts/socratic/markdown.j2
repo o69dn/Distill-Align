@@ -1,0 +1,17 @@
+Transform the following content into a Socratic multi-turn conversation.
+
+**Source Content:**
+{{ content }}
+
+**Source Type:** {{ source_type }}
+{% if title %}**Title:** {{ title }}{% endif %}
+{% if language %}**Language:** {{ language }}{% endif %}
+{% if section_headers %}**Sections:** {{ section_headers | join(' > ') }}{% endif %}
+
+**Instructions:**
+1. Create a system prompt that sets up the teaching context
+2. Generate 3-5 user questions that progressively explore the topic
+3. Provide detailed assistant answers that teach the concepts
+4. Include your reasoning trace explaining your pedagogical choices
+
+Output a JSON object with the conversation and reasoning trace.

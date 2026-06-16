@@ -1,0 +1,15 @@
+Extract and clean code from the following text.
+
+**Original Text:**
+{{ content }}
+
+{% if language %}**Language:** {{ language }}{% endif %}
+
+**Instructions:**
+1. Extract all code blocks
+2. Remove explanatory text between code blocks
+3. Preserve comments within code
+4. Ensure code is syntactically valid
+5. If multiple code blocks are related, combine them logically
+
+Output a JSON object with the extracted code.
