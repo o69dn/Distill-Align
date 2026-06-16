@@ -75,33 +75,49 @@ class CacheManager:
         # Stats tracking (in-memory, resets each session)
         self._hits = 0
         self._misses = 0
+        self._db_failed = False
 
         self._init_db()
 
     def _init_db(self) -> None:
-        """Initialize the SQLite database schema."""
-        with sqlite3.connect(str(self.db_path)) as conn:
-            conn.execute("""
-                CREATE TABLE IF NOT EXISTS cache (
-                    key TEXT PRIMARY KEY,
-                    value TEXT NOT NULL,
-                    model TEXT DEFAULT '',
-                    provider TEXT DEFAULT '',
-                    tokens_used INTEGER DEFAULT 0,
-                    created_at REAL NOT NULL,
-                    accessed_at REAL NOT NULL,
-                    access_count INTEGER DEFAULT 0
-                )
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_cache_created_at
-                ON cache(created_at)
-            """)
-            conn.execute("""
-                CREATE INDEX IF NOT EXISTS idx_cache_model
-                ON cache(model)
-            """)
-            conn.commit()
+        """Initialize the SQLite database schema with WAL mode and integrity checks."""
+        try:
+            with sqlite3.connect(str(self.db_path)) as conn:
+                # Performance + concurrency: WAL mode reduces lock contention
+                conn.execute("PRAGMA journal_mode=WAL")
+                # Safer durability setting for WAL: writes acknowledged by OS
+                conn.execute("PRAGMA synchronous=NORMAL")
+                # Run a quick integrity check on startup
+                (integrity_result,) = conn.execute("PRAGMA quick_check").fetchone()
+                if integrity_result != "ok":
+                    logger.warning(f"Cache database integrity check failed: {integrity_result}")
+                else:
+                    logger.debug("Cache database integrity check passed")
+
+                conn.execute("""
+                    CREATE TABLE IF NOT EXISTS cache (
+                        key TEXT PRIMARY KEY,
+                        value TEXT NOT NULL,
+                        model TEXT DEFAULT '',
+                        provider TEXT DEFAULT '',
+                        tokens_used INTEGER DEFAULT 0,
+                        created_at REAL NOT NULL,
+                        accessed_at REAL NOT NULL,
+                        access_count INTEGER DEFAULT 0
+                    )
+                """)
+                conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_cache_created_at
+                    ON cache(created_at)
+                """)
+                conn.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_cache_model
+                    ON cache(model)
+                """)
+                conn.commit()
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Failed to initialize cache database: {e}. Cache will be unavailable.")
+            self._db_failed = True
 
     @staticmethod
     def make_key(content: str, model: str = "", prompt_id: str = "") -> str:
@@ -129,35 +145,45 @@ class CacheManager:
         Returns:
             Cached value as dict, or None if not found/expired.
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
-            conn.row_factory = sqlite3.Row
-            row = conn.execute("SELECT * FROM cache WHERE key = ?", (key,)).fetchone()
+        if self._db_failed:
+            self._misses += 1
+            return None
 
-            if row is None:
-                self._misses += 1
-                return None
+        try:
+            with sqlite3.connect(str(self.db_path)) as conn:
+                conn.row_factory = sqlite3.Row
+                row = conn.execute("SELECT * FROM cache WHERE key = ?", (key,)).fetchone()
 
-            # Check TTL
-            if time.time() - row["created_at"] > self.ttl_seconds:
-                self._misses += 1
-                self.delete(key)
-                return None
+                if row is None:
+                    self._misses += 1
+                    return None
 
-            # Update access stats
-            conn.execute(
-                "UPDATE cache SET accessed_at = ?, access_count = access_count + 1 WHERE key = ?",
-                (time.time(), key),
-            )
-            conn.commit()
+                # Check TTL
+                if time.time() - row["created_at"] > self.ttl_seconds:
+                    self._misses += 1
+                    self.delete(key)
+                    return None
 
-            self._hits += 1
-            return {
-                "value": json.loads(row["value"]),
-                "model": row["model"],
-                "provider": row["provider"],
-                "tokens_used": row["tokens_used"],
-                "created_at": row["created_at"],
-            }
+                # Update access stats
+                conn.execute(
+                    "UPDATE cache SET accessed_at = ?, access_count = access_count + 1 WHERE key = ?",
+                    (time.time(), key),
+                )
+                conn.commit()
+
+                self._hits += 1
+                return {
+                    "value": json.loads(row["value"]),
+                    "model": row["model"],
+                    "provider": row["provider"],
+                    "tokens_used": row["tokens_used"],
+                    "created_at": row["created_at"],
+                }
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Cache read error: {e}")
+            self._db_failed = True
+            self._misses += 1
+            return None
 
     def set(
         self,
@@ -177,17 +203,24 @@ class CacheManager:
             provider: Provider name.
             tokens_used: Token count for this request.
         """
+        if self._db_failed:
+            return
+
         now = time.time()
-        with sqlite3.connect(str(self.db_path)) as conn:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO cache
-                (key, value, model, provider, tokens_used, created_at, accessed_at, access_count)
-                VALUES (?, ?, ?, ?, ?, ?, ?, 1)
-                """,
-                (key, json.dumps(value), model, provider, tokens_used, now, now),
-            )
-            conn.commit()
+        try:
+            with sqlite3.connect(str(self.db_path)) as conn:
+                conn.execute(
+                    """
+                    INSERT OR REPLACE INTO cache
+                    (key, value, model, provider, tokens_used, created_at, accessed_at, access_count)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                    """,
+                    (key, json.dumps(value), model, provider, tokens_used, now, now),
+                )
+                conn.commit()
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Cache write error: {e}")
+            self._db_failed = True
 
     def delete(self, key: str) -> bool:
         """
@@ -199,10 +232,17 @@ class CacheManager:
         Returns:
             True if entry was deleted.
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
-            cursor = conn.execute("DELETE FROM cache WHERE key = ?", (key,))
-            conn.commit()
-            return cursor.rowcount > 0
+        if self._db_failed:
+            return False
+
+        try:
+            with sqlite3.connect(str(self.db_path)) as conn:
+                cursor = conn.execute("DELETE FROM cache WHERE key = ?", (key,))
+                conn.commit()
+                return cursor.rowcount > 0
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Cache delete error: {e}")
+            return False
 
     def has(self, key: str) -> bool:
         """
@@ -223,14 +263,22 @@ class CacheManager:
         Returns:
             CacheStats with hit rate, entry counts, and size info.
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) as total, MIN(created_at) as oldest, MAX(created_at) as newest FROM cache"
-            ).fetchone()
+        total = 0
+        oldest = None
+        newest = None
 
-            total = row[0]
-            oldest = row[1]
-            newest = row[2]
+        if not self._db_failed:
+            try:
+                with sqlite3.connect(str(self.db_path)) as conn:
+                    row = conn.execute(
+                        "SELECT COUNT(*) as total, MIN(created_at) as oldest, MAX(created_at) as newest FROM cache"
+                    ).fetchone()
+
+                    total = row[0]
+                    oldest = row[1]
+                    newest = row[2]
+            except sqlite3.DatabaseError as e:
+                logger.error(f"Cache stats error: {e}")
 
         total_requests = self._hits + self._misses
         hit_rate = self._hits / total_requests if total_requests > 0 else 0.0
@@ -258,11 +306,18 @@ class CacheManager:
         Returns:
             Number of entries removed.
         """
+        if self._db_failed:
+            return 0
+
         cutoff = time.time() - (older_than_days * 86400 if older_than_days else self.ttl_seconds)
-        with sqlite3.connect(str(self.db_path)) as conn:
-            cursor = conn.execute("DELETE FROM cache WHERE created_at < ?", (cutoff,))
-            conn.commit()
-            removed = cursor.rowcount
+        try:
+            with sqlite3.connect(str(self.db_path)) as conn:
+                cursor = conn.execute("DELETE FROM cache WHERE created_at < ?", (cutoff,))
+                conn.commit()
+                removed = cursor.rowcount
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Cache prune error: {e}")
+            return 0
 
         if removed > 0:
             logger.info(
@@ -277,10 +332,17 @@ class CacheManager:
         Returns:
             Number of entries removed.
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
-            cursor = conn.execute("DELETE FROM cache")
-            conn.commit()
-            removed = cursor.rowcount
+        if self._db_failed:
+            return 0
+
+        try:
+            with sqlite3.connect(str(self.db_path)) as conn:
+                cursor = conn.execute("DELETE FROM cache")
+                conn.commit()
+                removed = cursor.rowcount
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Cache clear error: {e}")
+            return 0
 
         logger.info(f"Cleared {removed} cache entries")
         return removed
@@ -295,12 +357,19 @@ class CacheManager:
         Returns:
             List of cache keys.
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
-            if model:
-                rows = conn.execute("SELECT key FROM cache WHERE model = ?", (model,)).fetchall()
-            else:
-                rows = conn.execute("SELECT key FROM cache").fetchall()
-        return [row[0] for row in rows]
+        if self._db_failed:
+            return []
+
+        try:
+            with sqlite3.connect(str(self.db_path)) as conn:
+                if model:
+                    rows = conn.execute("SELECT key FROM cache WHERE model = ?", (model,)).fetchall()
+                else:
+                    rows = conn.execute("SELECT key FROM cache").fetchall()
+            return [row[0] for row in rows]
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Cache get_cached_keys error: {e}")
+            return []
 
     def get_total_tokens(self, model: str | None = None) -> int:
         """
@@ -312,16 +381,30 @@ class CacheManager:
         Returns:
             Total token count.
         """
-        with sqlite3.connect(str(self.db_path)) as conn:
-            if model:
-                row = conn.execute(
-                    "SELECT COALESCE(SUM(tokens_used), 0) FROM cache WHERE model = ?",
-                    (model,),
-                ).fetchone()
-            else:
-                row = conn.execute("SELECT COALESCE(SUM(tokens_used), 0) FROM cache").fetchone()
-        return row[0]
+        if self._db_failed:
+            return 0
+
+        try:
+            with sqlite3.connect(str(self.db_path)) as conn:
+                if model:
+                    row = conn.execute(
+                        "SELECT COALESCE(SUM(tokens_used), 0) FROM cache WHERE model = ?",
+                        (model,),
+                    ).fetchone()
+                else:
+                    row = conn.execute("SELECT COALESCE(SUM(tokens_used), 0) FROM cache").fetchone()
+            return row[0]
+        except sqlite3.DatabaseError as e:
+            logger.error(f"Cache get_total_tokens error: {e}")
+            return 0
 
     def close(self) -> None:
-        """Close the cache (no-op for SQLite, but maintains interface)."""
-        pass
+        """Close the cache and checkpoint WAL to main database."""
+        if not self._db_failed and self.db_path.exists():
+            try:
+                with sqlite3.connect(str(self.db_path)) as conn:
+                    # Flush WAL to main database
+                    conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+                    conn.commit()
+            except sqlite3.DatabaseError:
+                pass  # Best-effort checkpoint

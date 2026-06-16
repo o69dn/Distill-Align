@@ -25,15 +25,30 @@ type-check: ## Run type checking
 	poetry run mypy src/
 
 clean: ## Clean build artifacts
-	rm -rf build/
-	rm -rf dist/
-	rm -rf *.egg-info/
-	rm -rf .pytest_cache/
-	rm -rf .mypy_cache/
-	rm -rf .ruff_cache/
-	rm -rf htmlcov/
-	rm -rf .coverage
-	find . -type d -name __pycache__ -exec rm -rf {} +
+	poetry run python -c "
+import shutil, pathlib, os, sys
+dirs = ['build', 'dist', '.pytest_cache', '.mypy_cache', '.ruff_cache', 'htmlcov']
+files = ['.coverage']
+for d in dirs:
+    p = pathlib.Path(d)
+    if p.exists():
+        shutil.rmtree(p)
+        print(f'Removed {d}')
+for f in files:
+    p = pathlib.Path(f)
+    if p.exists():
+        p.unlink()
+        print(f'Removed {f}')
+for d in pathlib.Path('.').rglob('__pycache__'):
+    shutil.rmtree(d)
+    print(f'Removed {d}')
+for p in pathlib.Path('.').rglob('*.egg-info'):
+    shutil.rmtree(p)
+    print(f'Removed {p}')
+for p in pathlib.Path('.').rglob('*.egg'):
+    p.unlink()
+    print(f'Removed {p}')
+"
 
 build: ## Build package
 	poetry build

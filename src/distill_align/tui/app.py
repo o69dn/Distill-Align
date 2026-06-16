@@ -158,8 +158,7 @@ class CacheTab(Container):
         """Refresh cache detail table."""
         try:
             cache = CacheManager(cache_dir=".cache")
-            with cache._get_conn() if hasattr(cache, "_get_conn") else _NoOp():
-                keys = cache.get_cached_keys()
+            keys = cache.get_cached_keys()
 
             table = self.query_one("#cache-detail-table", DataTable)
             table.clear()
@@ -177,14 +176,6 @@ class CacheTab(Container):
                     )
         except Exception as e:
             logger.error(f"Failed to refresh cache: {e}")
-
-
-class _NoOp:
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
 
 
 # =============================================================================

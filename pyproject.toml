@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "distill-align"
-version = "0.2.0"
+version = "0.1.1"
 description = "The Structured Reasoning Extraction Factory — Generate high-quality fine-tuning datasets from raw domain data"
 authors = ["o69dn"]
 readme = "README.md"
@@ -30,6 +30,7 @@ textual = "^0.58.0"
 rich = "^13.7.0"
 # Data Validation
 pydantic = "^2.7.0"
+pydantic-settings = "^2.2.0"
 # Async HTTP
 httpx = "^0.27.0"
 # PDF Parsing
@@ -61,7 +62,7 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-distill-align = "distill_align.cli.main:app"
+distill-align = "distill_align.cli.main:entry_point"
 
 # Ruff Configuration
 [tool.ruff]

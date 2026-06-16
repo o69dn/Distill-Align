@@ -8,11 +8,13 @@ Provides different conversation generation strategies:
 - qa: Simple question-answer pairs
 """
 
+import asyncio
 import uuid
 from enum import StrEnum
 
 from loguru import logger
 
+from ..core.exceptions import LLMClientError
 from ..core.schemas import ConversationSchema, DataChunk, SynthesizedTurn
 from .models.base import BaseLLMClient
 from .pruner import ContentPruner
@@ -114,7 +116,7 @@ class ConversationBuilder:
             pruned = self.pruner.prune_conversation(conversation)
             return pruned or conversation
 
-        except Exception as e:
+        except LLMClientError as e:
             logger.error(f"Failed to build {mode.value} conversation: {e}")
             return None
 
@@ -218,6 +220,7 @@ class ConversationBuilder:
         mode: ConversationMode,
         llm_client: BaseLLMClient,
         temperature: float = 0.7,
+        max_concurrency: int = 5,
     ) -> list[ConversationSchema]:
         """
         Build conversations for a batch of chunks in the same mode.
@@ -227,13 +230,18 @@ class ConversationBuilder:
             mode: Conversation mode.
             llm_client: LLM client.
             temperature: Sampling temperature.
+            max_concurrency: Maximum concurrent LLM requests.
 
         Returns:
             List of generated conversations.
         """
-        import asyncio
+        semaphore = asyncio.Semaphore(max_concurrency)
 
-        tasks = [self.build_conversation(chunk, mode, llm_client, temperature) for chunk in chunks]
+        async def build_with_limit(chunk: DataChunk) -> ConversationSchema | None:
+            async with semaphore:
+                return await self.build_conversation(chunk, mode, llm_client, temperature)
+
+        tasks = [build_with_limit(chunk) for chunk in chunks]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         conversations = []

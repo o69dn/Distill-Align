@@ -11,8 +11,8 @@ Features:
 """
 
 import asyncio
+import time
 from collections.abc import Callable
-from datetime import datetime
 from typing import Any
 
 from loguru import logger
@@ -29,18 +29,18 @@ class RateLimiter:
     def __init__(self, max_rpm: int = 60):
         self.max_rpm = max_rpm
         self.interval = 60.0 / max_rpm
-        self._last_request_time: datetime | None = None
+        self._last_request_time: float | None = None
         self._lock = asyncio.Lock()
 
     async def acquire(self) -> None:
         """Wait until a request can be made."""
         async with self._lock:
-            now = datetime.now()
-            if self._last_request_time:
-                elapsed = (now - self._last_request_time).total_seconds()
+            now = time.monotonic()
+            if self._last_request_time is not None:
+                elapsed = now - self._last_request_time
                 if elapsed < self.interval:
                     await asyncio.sleep(self.interval - elapsed)
-            self._last_request_time = datetime.now()
+            self._last_request_time = time.monotonic()
 
 
 class BatchWorker:

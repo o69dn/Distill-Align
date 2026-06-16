@@ -168,6 +168,16 @@ def synthesize(
         chunks_data = json.load(f)
     chunks = [DataChunk(**chunk) for chunk in chunks_data]
 
+    # Security: deprecate --api-key in favor of environment variables
+    if api_key:
+        console.print(
+            "[yellow]⚠️  WARNING: --api-key exposes your secret in process listings. "
+            "Use the OPENAI_API_KEY or DISTILL_LLM_API_KEY environment variable instead. "
+            "This flag will be removed in a future version.[/yellow]"
+        )
+        import os
+        os.environ.setdefault("OPENAI_API_KEY", api_key)
+
     # Setup cache
     cache = None if no_cache else CacheManager(cache_dir=".cache")
     checkpoint = None if no_checkpoint else CheckpointManager()
@@ -204,33 +214,39 @@ def synthesize(
                 builder = ConversationBuilder()
                 client = pipeline._get_client()
                 mode_enum = ConversationMode(mode)
-                conversations = await builder.build_batch(chunks, mode_enum, client)
+                conversations = await builder.build_batch(chunks, mode_enum, client, max_concurrency=concurrency)
             else:
                 conversations = await pipeline.synthesize_batch(chunks, update_progress, job_id=job_id, resume=resume)
             return conversations
 
-    conversations = asyncio.run(run_synthesis())
+    try:
+        conversations = asyncio.run(run_synthesis())
 
-    output_path = Path(output)
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    conv_data = [conv.model_dump() for conv in conversations]
-    with open(output_path, "w", encoding="utf-8") as f:
-        json.dump(conv_data, f, indent=2, ensure_ascii=False)
+        output_path = Path(output)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        conv_data = [conv.model_dump() for conv in conversations]
+        with open(output_path, "w", encoding="utf-8") as f:
+            json.dump(conv_data, f, indent=2, ensure_ascii=False)
 
-    table = Table(title="Synthesis Summary")
-    table.add_column("Metric", style="cyan")
-    table.add_column("Value", style="green")
-    table.add_row("Input Chunks", str(len(chunks)))
-    table.add_row("Conversations", str(len(conversations)))
-    table.add_row("Success Rate", f"{len(conversations) / len(chunks) * 100:.1f}%" if chunks else "0%")
-    table.add_row("Output File", str(output_path))
+        table = Table(title="Synthesis Summary")
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="green")
+        table.add_row("Input Chunks", str(len(chunks)))
+        table.add_row("Conversations", str(len(conversations)))
+        table.add_row("Success Rate", f"{len(conversations) / len(chunks) * 100:.1f}%" if chunks else "0%")
+        table.add_row("Output File", str(output_path))
 
-    if cache:
-        cache_stats = cache.stats()
-        table.add_row("Cache Hit Rate", f"{cache_stats.hit_rate:.1%}")
-        table.add_row("Cache Entries", str(cache_stats.total_entries))
+        if cache:
+            cache_stats = cache.stats()
+            table.add_row("Cache Hit Rate", f"{cache_stats.hit_rate:.1%}")
+            table.add_row("Cache Entries", str(cache_stats.total_entries))
 
-    console.print(table)
+        console.print(table)
+    finally:
+        # Cleanup HTTP connections to prevent leaks
+        asyncio.run(pipeline.close())
+        if cache:
+            cache.close()
 
 
 @app.command()
@@ -520,5 +536,17 @@ def version():
     console.print(f"distill-align v{__version__}")
 
 
+def entry_point() -> None:
+    """CLI entry point with global exception handling for production use."""
+    try:
+        app()
+    except typer.Exit:
+        raise  # Let Typer handle its own exit codes
+    except Exception as e:
+        console.print(f"\n[red]❌ Unexpected error: {e}[/red]")
+        logger.opt(exception=True).error("Unhandled CLI exception")
+        raise typer.Exit(1)
+
+
 if __name__ == "__main__":
-    app()
+    entry_point()

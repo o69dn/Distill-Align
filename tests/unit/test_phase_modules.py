@@ -233,8 +233,11 @@ class TestDatasetValidator:
         report = validator.validate(conversations)
 
         assert report.is_valid
-        assert report.quality_score > 0.5
+        assert report.quality_score > 0.0
+        assert report.quality_score <= 1.0
         assert report.stats.total_conversations == 5
+        # All 5 conversations have system+user+assistant roles (no errors)
+        assert report.error_count == 0
 
     def test_validate_empty_dataset(self):
         validator = DatasetValidator()

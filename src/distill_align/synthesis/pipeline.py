@@ -18,7 +18,7 @@ from loguru import logger
 
 from ..core.cache import CacheManager
 from ..core.checkpoint import CheckpointManager
-from ..core.exceptions import SynthesisError
+from ..core.exceptions import LLMClientError, SynthesisError
 from ..core.schemas import (
     ConversationSchema,
     DataChunk,
@@ -185,7 +185,7 @@ class SynthesisPipeline:
                 reasoning_trace=parsed.get("reasoning_trace"),
             )
 
-        except Exception as e:
+        except LLMClientError as e:
             logger.error(f"Socratic pipeline failed: {e}")
             return None
 
@@ -220,7 +220,7 @@ class SynthesisPipeline:
                         )
                     else:
                         cleaned_turns.append(turn)
-                except Exception as e:
+                except LLMClientError as e:
                     logger.warning(f"Scaffold failed for turn, keeping original: {e}")
                     cleaned_turns.append(turn)
             else:
@@ -265,13 +265,14 @@ class SynthesisPipeline:
                     processed_set = set(checkpoint.processed_ids)
                     chunks = [c for c in chunks if c.id not in processed_set]
                     logger.info(f"Processing {len(chunks)} remaining chunks")
+                    self._checkpoint.start_job(job_id)
                 else:
                     logger.warning(f"Job {job_id} not found, starting fresh")
                     self._checkpoint.create_job("synthesize", total_items=len(chunks), job_id=job_id)
+                    self._checkpoint.start_job(job_id)
             else:
                 self._checkpoint.create_job("synthesize", total_items=len(chunks), job_id=job_id)
-
-            self._checkpoint.start_job(job_id)
+                self._checkpoint.start_job(job_id)
 
         # Prepare items for worker
         items = [{"id": chunk.id, "chunk": chunk} for chunk in chunks]

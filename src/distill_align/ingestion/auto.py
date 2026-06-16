@@ -202,9 +202,6 @@ class AutoIngestionPipeline:
                 ".env",
                 ".cache",
                 ".distill-align",
-                "*.pyc",
-                "*.pyo",
-                "*.class",
             ]
         )
 

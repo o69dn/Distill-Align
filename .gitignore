@@ -84,6 +84,7 @@ output/
 *.json
 !pyproject.toml
 !package.json
+!poetry.lock
 
 # Logs
 *.log

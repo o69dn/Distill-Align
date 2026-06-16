@@ -107,8 +107,7 @@ distill-align/
 | HTTP | httpx |
 | Logging | Loguru |
 | Templates | Jinja2 |
-| Retries | tenacity |
-| Caching | diskcache |
+| Caching | SQLite (via stdlib sqlite3) |
 
 ## Next Steps
 

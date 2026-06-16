@@ -2,6 +2,7 @@
 Ingestion pipeline orchestrator.
 
 Handles the full ingestion workflow: loading files, chunking content, and outputting DataChunks.
+This pipeline wraps AutoIngestionPipeline for manual file-type selection (non-auto-detect mode).
 """
 
 import asyncio
@@ -11,15 +12,13 @@ from loguru import logger
 
 from ..core.exceptions import IngestionError, UnsupportedFormatError
 from ..core.schemas import DataChunk, IngestionConfig
-from .chunkers.base import BaseChunker
-from .chunkers.code import CodeChunker
-from .chunkers.markdown import MarkdownChunker
+from .auto import AutoIngestionPipeline, EXTENSION_LOADER_MAP
 from .loaders.base import BaseLoader
 from .loaders.code import CodeLoader
 from .loaders.markdown import MarkdownLoader
 from .loaders.pdf import PDFLoader
 
-# Map file extensions to loader classes
+# Map file extensions to loader classes (non-auto subset)
 LOADER_MAP: dict[str, type[BaseLoader]] = {
     ".md": MarkdownLoader,
     ".markdown": MarkdownLoader,
@@ -34,7 +33,12 @@ for ext in CodeLoader.SUPPORTED_EXTENSIONS if hasattr(CodeLoader, "SUPPORTED_EXT
 
 
 class IngestionPipeline:
-    """Orchestrates the ingestion of files into DataChunks."""
+    """
+    Orchestrates the ingestion of files into DataChunks.
+
+    This is a wrapper around AutoIngestionPipeline that restricts loaders
+    to a manually-configured subset for non-auto-detect mode.
+    """
 
     def __init__(self, config: IngestionConfig | None = None):
         """
@@ -44,11 +48,11 @@ class IngestionPipeline:
             config: Optional ingestion configuration. Uses defaults if not provided.
         """
         self.config = config or IngestionConfig()
-        self._chunkers: dict[str, BaseChunker] = {}
+        self._auto = AutoIngestionPipeline(config)
 
     def _get_loader(self, file_path: Path) -> BaseLoader:
         """
-        Get the appropriate loader for a file.
+        Get the appropriate loader for a file (restricted subset).
 
         Args:
             file_path: Path to the file.
@@ -71,41 +75,6 @@ class IngestionPipeline:
 
         raise UnsupportedFormatError(f"Unsupported file format: {ext}")
 
-    def _get_chunker(self, source_type: str) -> BaseChunker:
-        """
-        Get the appropriate chunker for a source type.
-
-        Args:
-            source_type: Type of source content.
-
-        Returns:
-            Chunker instance.
-        """
-        if source_type in self._chunkers:
-            return self._chunkers[source_type]
-
-        if source_type == "markdown":
-            chunker = MarkdownChunker(
-                chunk_size=self.config.chunk_size,
-                chunk_overlap=self.config.chunk_overlap,
-                respect_headers=self.config.respect_headers,
-            )
-        elif source_type == "code":
-            chunker = CodeChunker(
-                chunk_size=self.config.chunk_size,
-                chunk_overlap=self.config.chunk_overlap,
-            )
-        else:
-            # Default to markdown chunker for plain text
-            chunker = MarkdownChunker(
-                chunk_size=self.config.chunk_size,
-                chunk_overlap=self.config.chunk_overlap,
-                respect_headers=False,
-            )
-
-        self._chunkers[source_type] = chunker
-        return chunker
-
     def ingest_file(self, file_path: str | Path) -> list[DataChunk]:
         """
         Ingest a single file.
@@ -125,7 +94,7 @@ class IngestionPipeline:
         try:
             loader = self._get_loader(file_path)
             metadata = loader.extract_metadata()
-            chunker = self._get_chunker(metadata.source_type)
+            chunker = self._auto.get_chunker(metadata.source_type)
             chunks = loader.to_chunks(chunker)
 
             logger.info(f"Created {len(chunks)} chunks from {file_path.name}")
@@ -196,7 +165,6 @@ class IngestionPipeline:
         Returns:
             List of DataChunk objects.
         """
-        # Run in thread pool to avoid blocking
         loop = asyncio.get_event_loop()
         return await loop.run_in_executor(None, self.ingest_file, file_path)
 
