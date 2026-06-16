@@ -3,7 +3,6 @@ Unit tests for core schemas.
 """
 
 import pytest
-
 from distill_align.core.schemas import (
     AlpacaEntry,
     ConversationSchema,
