@@ -188,31 +188,34 @@ def load_config(config_path: str | Path | None = None) -> DistillAlignConfig:
     Returns:
         DistillAlignConfig instance.
     """
+    path: Path | None
     if config_path:
         path = Path(config_path)
         if not path.exists():
             raise FileNotFoundError(f"Config file not found: {path}")
     else:
         path = find_config_file()
-        if path is None:
-            logger.debug("No config file found, using defaults")
-            return DistillAlignConfig()
+
+    if path is None:
+        logger.debug("No config file found, using defaults")
+        return DistillAlignConfig()
 
     logger.info(f"Loading config from {path}")
 
-    with open(path, encoding="utf-8") as f:
-        if path.suffix == ".toml":
+    if path.suffix == ".toml":
+        with open(path, "rb") as f:
             try:
                 import tomllib
 
                 data = tomllib.load(f)
             except ImportError:
-                import tomli
+                import tomli  # type: ignore[import-not-found]
 
                 data = tomli.load(f)
-        else:
+    else:
+        with open(path, encoding="utf-8") as f:
             try:
-                import yaml
+                import yaml  # type: ignore[import-untyped]
             except ImportError:
                 raise ImportError(
                     "PyYAML is required for YAML config files. Install with: pip install pyyaml"

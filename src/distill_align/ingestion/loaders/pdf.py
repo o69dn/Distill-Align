@@ -38,7 +38,7 @@ class PDFLoader(BaseLoader):
             LoaderError: If file cannot be read.
         """
         try:
-            import pypdf
+            import pypdf  # type: ignore[import-not-found]
 
             reader = pypdf.PdfReader(self.file_path, password=self.password)
             text_parts = []
@@ -60,7 +60,7 @@ class PDFLoader(BaseLoader):
             SourceMetadata with file information and PDF metadata.
         """
         try:
-            import pypdf
+            import pypdf  # type: ignore[import-not-found]
 
             reader = pypdf.PdfReader(self.file_path, password=self.password)
             info = reader.metadata if reader.metadata else {}

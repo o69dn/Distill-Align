@@ -244,9 +244,9 @@ class ConversationBuilder:
         tasks = [build_with_limit(chunk) for chunk in chunks]
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
-        conversations = []
+        conversations: list[ConversationSchema] = []
         for chunk, result in zip(chunks, results, strict=False):
-            if isinstance(result, Exception):
+            if isinstance(result, BaseException):
                 logger.warning(f"Failed to build conversation for {chunk.id}: {result}")
                 continue
             if result is not None:

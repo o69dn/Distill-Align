@@ -128,7 +128,7 @@ class IngestionPipeline:
             raise IngestionError(f"Not a directory: {directory}")
 
         # Collect files
-        files = []
+        files: list[Path] = []
         if recursive:
             for pattern in file_patterns or ["*"]:
                 files.extend(directory.rglob(pattern))
@@ -143,7 +143,7 @@ class IngestionPipeline:
         logger.info(f"Found {len(files)} files to ingest")
 
         # Ingest each file
-        all_chunks = []
+        all_chunks: list[DataChunk] = []
         for file_path in files:
             try:
                 chunks = self.ingest_file(file_path)
@@ -191,7 +191,7 @@ class IngestionPipeline:
         logger.info(f"Ingesting directory asynchronously: {directory}")
 
         # Collect files
-        files = []
+        files: list[Path] = []
         if recursive:
             for pattern in file_patterns or ["*"]:
                 files.extend(directory.rglob(pattern))
@@ -217,11 +217,11 @@ class IngestionPipeline:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Collect results
-        all_chunks = []
+        all_chunks: list[DataChunk] = []
         for file_path, result in zip(files, results, strict=False):
             if isinstance(result, Exception):
                 logger.warning(f"Failed to ingest {file_path}: {result}")
-            else:
+            elif isinstance(result, list):
                 all_chunks.extend(result)
 
         logger.info(f"Total chunks created: {len(all_chunks)}")

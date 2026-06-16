@@ -141,4 +141,4 @@ class AlpacaFormatter(BaseFormatter):
         if not self.validate(data):
             raise FormatError(f"Invalid Alpaca format in {file_path}")
 
-        return data
+        return data  # type: ignore[no-any-return]

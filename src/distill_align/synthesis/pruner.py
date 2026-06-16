@@ -175,7 +175,7 @@ class ContentPruner:
 
         for match in matches:
             try:
-                return json.loads(match)
+                return json.loads(match)  # type: ignore[no-any-return]
             except json.JSONDecodeError:
                 continue
 
@@ -185,13 +185,13 @@ class ContentPruner:
 
         for match in matches:
             try:
-                return json.loads(match)
+                return json.loads(match)  # type: ignore[no-any-return]
             except json.JSONDecodeError:
                 continue
 
         # Try parsing the entire content
         try:
-            return json.loads(content)
+            return json.loads(content)  # type: ignore[no-any-return]
         except json.JSONDecodeError:
             return None
 

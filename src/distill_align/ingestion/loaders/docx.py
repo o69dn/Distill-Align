@@ -25,9 +25,9 @@ class DOCXLoader(BaseLoader):
             LoaderError: If file cannot be read.
         """
         try:
-            from docx import Document
+            from docx import Document  # type: ignore[import-not-found]
 
-            doc = Document(self.file_path)
+            doc = Document(str(self.file_path))
             paragraphs = []
 
             for para in doc.paragraphs:
@@ -59,9 +59,9 @@ class DOCXLoader(BaseLoader):
             SourceMetadata with file information.
         """
         try:
-            from docx import Document
+            from docx import Document  # type: ignore[import-not-found]
 
-            doc = Document(self.file_path)
+            doc = Document(str(self.file_path))
             props = doc.core_properties
 
             return SourceMetadata(

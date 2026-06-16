@@ -278,6 +278,6 @@ class UnslothConfigBuilder:
 
 # Import torch at module level for template rendering
 try:
-    import torch
+    import torch  # type: ignore[import-not-found]
 except ImportError:
     torch = None

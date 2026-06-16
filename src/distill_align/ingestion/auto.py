@@ -148,7 +148,7 @@ class AutoIngestionPipeline:
             return self._chunkers[source_type]
 
         if source_type == "markdown":
-            chunker = MarkdownChunker(
+            chunker: MarkdownChunker | CodeChunker = MarkdownChunker(
                 chunk_size=self.config.chunk_size,
                 chunk_overlap=self.config.chunk_overlap,
                 respect_headers=self.config.respect_headers,

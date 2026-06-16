@@ -18,8 +18,9 @@ Commands:
 
 import asyncio
 from pathlib import Path
+from typing import Literal, cast
 
-import typer
+import typer  # type: ignore[import-not-found]
 from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
@@ -73,6 +74,7 @@ def ingest(
 ):
     """Ingest files and split into semantic chunks."""
     from ..ingestion.auto import AutoIngestionPipeline
+    from ..ingestion.pipeline import IngestionPipeline
 
     console.print(Panel.fit("📥 Ingestion Pipeline", style="bold blue"))
 
@@ -83,12 +85,9 @@ def ingest(
         console.print(f"[red]Error: Source path does not exist: {source}[/red]")
         raise typer.Exit(1)
 
-    if auto_detect:
-        pipeline = AutoIngestionPipeline(config)
-    else:
-        from ..ingestion.pipeline import IngestionPipeline
-
-        pipeline = IngestionPipeline(config)
+    pipeline: AutoIngestionPipeline | IngestionPipeline = (
+        AutoIngestionPipeline(config) if auto_detect else IngestionPipeline(config)
+    )
 
     with Progress(
         SpinnerColumn(),
@@ -107,7 +106,7 @@ def ingest(
                         task, description=f"Processing {name} ({current}/{total})", completed=current, total=total
                     )
 
-                chunks = pipeline.ingest_directory(source_path, recursive=recursive, progress_callback=progress_cb)
+                chunks = pipeline.ingest_directory(source_path, recursive=recursive, progress_callback=progress_cb)  # type: ignore[call-arg]
             else:
                 chunks = pipeline.ingest_directory(source_path, recursive=recursive)
 
@@ -177,6 +176,7 @@ def synthesize(
             "This flag will be removed in a future version.[/yellow]"
         )
         import os
+
         os.environ.setdefault("OPENAI_API_KEY", api_key)
 
     # Setup cache
@@ -184,7 +184,7 @@ def synthesize(
     checkpoint = None if no_checkpoint else CheckpointManager()
 
     config = SynthesisConfig(
-        llm_provider=provider,
+        llm_provider=cast(Literal["openai", "ollama", "vllm"], provider),
         model_name=model,
         base_url=base_url,
         api_key=api_key,
@@ -280,7 +280,7 @@ def export(
 
     format_list = [f.strip() for f in formats.split(",")]
     config = ExportConfig(
-        formats=format_list,
+        formats=cast(list[Literal["sharegpt", "alpaca"]], format_list),
         output_dir=output_dir,
         unsloth_model=model_name,
     )

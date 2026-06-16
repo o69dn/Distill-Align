@@ -9,10 +9,10 @@ from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
-from textual.app import App, ComposeResult
-from textual.binding import Binding
-from textual.containers import Container, Horizontal, Vertical
-from textual.widgets import (
+from textual.app import App, ComposeResult  # type: ignore[import-not-found]
+from textual.binding import Binding  # type: ignore[import-not-found]
+from textual.containers import Container, Horizontal, Vertical  # type: ignore[import-not-found]
+from textual.widgets import (  # type: ignore[import-not-found]
     Button,
     DataTable,
     Footer,
@@ -299,7 +299,7 @@ class DistillAlignApp(App):
         self.sub_title = "Structured Reasoning Extraction Factory"
 
         # Refresh stats periodically
-        self.set_interval(5.0, self.auto_refresh)
+        self.set_interval(5.0, self._auto_refresh)
 
         # Add a welcome log message
         log_view = self.query_one("#log-view", RichLog)
@@ -308,7 +308,7 @@ class DistillAlignApp(App):
             log_view.write(f"[cyan]i[/cyan] Working directory: {Path.cwd()}")
             log_view.write("[cyan]i[/cyan] Press [yellow]q[/yellow] to quit, [yellow]r[/yellow] to refresh")
 
-    def auto_refresh(self) -> None:
+    def _auto_refresh(self) -> None:
         """Periodic auto-refresh of stats."""
         try:
             dashboard = self.query_one(DashboardTab)

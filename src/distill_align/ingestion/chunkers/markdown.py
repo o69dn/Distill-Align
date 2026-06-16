@@ -105,7 +105,7 @@ class MarkdownChunker(BaseChunker):
         """
         sections = []
         current_header = ""
-        current_content = []
+        current_content: list[str] = []
 
         for line in content.split("\n"):
             match = self.HEADER_PATTERN.match(line)

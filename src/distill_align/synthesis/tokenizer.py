@@ -5,8 +5,15 @@ Provides accurate token counting using tiktoken and cost estimation
 based on model pricing.
 """
 
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from loguru import logger
 from pydantic import BaseModel
+
+if TYPE_CHECKING:
+    import tiktoken  # type: ignore[import-not-found]
 
 # Pricing per 1M tokens (USD, as of 2024)
 MODEL_PRICING: dict[str, dict[str, float]] = {
@@ -81,7 +88,7 @@ class Tokenizer:
             model: Model name for token counting and cost estimation.
         """
         self.model = model
-        self._encoder = None
+        self._encoder: tiktoken.Encoding | None = None
 
         # Cumulative stats
         self._total_input_tokens = 0
@@ -92,7 +99,7 @@ class Tokenizer:
         """Get or create the tiktoken encoder."""
         if self._encoder is None:
             try:
-                import tiktoken
+                import tiktoken  # type: ignore[import-not-found]
 
                 encoding_name = MODEL_ENCODING_MAP.get(self.model)
                 if encoding_name:

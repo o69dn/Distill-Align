@@ -5,7 +5,7 @@ Handles the full export workflow: validation, splitting, formatting, and Unsloth
 """
 
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from loguru import logger
 
@@ -120,8 +120,7 @@ class ExportPipeline:
         Returns:
             Dictionary mapping format names to output file paths.
         """
-        if formats is None:
-            formats = self.config.export_formats
+        export_formats = cast("list[str]", self.config.formats if formats is None else formats)
 
         # Validate first
         conversations, validation_report = self.validate(conversations)
@@ -143,7 +142,7 @@ class ExportPipeline:
         output_files = {}
 
         # Export to each format
-        for format_name in formats:
+        for format_name in export_formats:
             try:
                 formatter = self._get_formatter(format_name)
                 filename = f"{dataset_filename}_{format_name}.json"
@@ -207,7 +206,7 @@ class ExportPipeline:
             elif format_name in FORMATTER_MAP:
                 try:
                     formatter = self._get_formatter(format_name)
-                    data = formatter.load(file_path)
+                    data = formatter.load(file_path)  # type: ignore[attr-defined]
                     results[format_name] = formatter.validate(data)
                 except Exception:
                     results[format_name] = False

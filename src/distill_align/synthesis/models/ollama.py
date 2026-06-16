@@ -72,16 +72,17 @@ class OllamaClient(BaseLLMClient):
         client = await self._get_client()
 
         # Build request payload
+        options: dict[str, object] = {
+            "temperature": temperature,
+        }
+        if max_tokens:
+            options["num_predict"] = max_tokens
         payload = {
             "model": self.model,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
             "stream": False,
-            "options": {
-                "temperature": temperature,
-            },
+            "options": options,
         }
-        if max_tokens:
-            payload["options"]["num_predict"] = max_tokens
         payload.update(kwargs)
 
         try:
@@ -136,16 +137,17 @@ class OllamaClient(BaseLLMClient):
         """
         client = await self._get_client()
 
+        options: dict[str, object] = {
+            "temperature": temperature,
+        }
+        if max_tokens:
+            options["num_predict"] = max_tokens
         payload = {
             "model": self.model,
             "prompt": prompt,
             "stream": False,
-            "options": {
-                "temperature": temperature,
-            },
+            "options": options,
         }
-        if max_tokens:
-            payload["options"]["num_predict"] = max_tokens
         payload.update(kwargs)
 
         try:

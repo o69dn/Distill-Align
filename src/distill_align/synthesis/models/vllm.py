@@ -55,7 +55,7 @@ class VLLMClient(OpenAIClient):
             response.raise_for_status()
             data = response.json()
             if data.get("data"):
-                return data["data"][0]
+                return data["data"][0]  # type: ignore[no-any-return]
             return {}
         except Exception as e:
             raise LLMClientError(f"Failed to get model info: {e}") from e

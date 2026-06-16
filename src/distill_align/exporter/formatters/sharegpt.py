@@ -50,7 +50,7 @@ class ShareGPTFormatter(BaseFormatter):
                 messages = []
                 for turn in conv.turns:
                     role = self.ROLE_MAP.get(turn.role, "gpt")
-                    messages.append(ShareGPTMessage(from_=role, value=turn.content))
+                    messages.append(ShareGPTMessage(from_=role, value=turn.content))  # type: ignore[call-arg]
 
                 item = ShareGPTItem(
                     id=conv.id,
@@ -113,4 +113,4 @@ class ShareGPTFormatter(BaseFormatter):
         if not self.validate(data):
             raise FormatError(f"Invalid ShareGPT format in {file_path}")
 
-        return data
+        return data  # type: ignore[no-any-return]

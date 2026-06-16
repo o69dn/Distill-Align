@@ -135,7 +135,7 @@ class BatchWorker:
                 if job_id and self.checkpoint:
                     self.checkpoint.record_processed(job_id, item_id)
 
-                return cached["value"]
+                return cached["value"]  # type: ignore[no-any-return]
 
         async with self.semaphore:
             try:
@@ -160,7 +160,7 @@ class BatchWorker:
                     self.checkpoint.record_processed(job_id, item_id)
 
                 self.stats["completed"] += 1
-                return result
+                return result  # type: ignore[no-any-return]
 
             except Exception as e:
                 logger.error(f"Failed to process {item_id}: {e}")
@@ -178,7 +178,7 @@ class BatchWorker:
         processor_fn: Callable[..., Any],
     ) -> Any:
         """Process item with exponential backoff retries."""
-        last_exception = None
+        last_exception: Exception | None = None
 
         for attempt in range(self.retry_attempts):
             try:
@@ -259,7 +259,7 @@ class BatchWorker:
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
         # Build result list
-        processed_results = []
+        processed_results: list[dict[str, Any]] = []
         for i, result in enumerate(results):
             if isinstance(result, Exception):
                 processed_results.append(
@@ -270,6 +270,7 @@ class BatchWorker:
                     }
                 )
             else:
+                assert isinstance(result, dict)
                 processed_results.append(result)
 
         logger.info(

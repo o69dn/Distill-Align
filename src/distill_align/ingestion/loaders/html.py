@@ -70,8 +70,8 @@ class HTMLLoader(BaseLoader):
             title_tag = soup.find("title")
             if title_tag:
                 title = title_tag.get_text(strip=True)
-            elif soup.find("h1"):
-                title = soup.find("h1").get_text(strip=True)
+            elif soup.find("h1") is not None:
+                title = soup.find("h1").get_text(strip=True)  # type: ignore[union-attr]
 
             # Extract meta tags
             meta_tags = {}
@@ -91,7 +91,7 @@ class HTMLLoader(BaseLoader):
                 file_path=str(self.file_path),
                 file_name=self.file_path.name,
                 title=title or self.file_path.stem,
-                author=meta_tags.get("author"),
+                author=str(meta_tags.get("author") or ""),
                 section_headers=headers,
                 custom_tags={
                     "format": "html",

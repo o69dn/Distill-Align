@@ -393,7 +393,7 @@ class CacheManager:
                     ).fetchone()
                 else:
                     row = conn.execute("SELECT COALESCE(SUM(tokens_used), 0) FROM cache").fetchone()
-            return row[0]
+            return int(row[0])  # type: ignore[arg-type]
         except sqlite3.DatabaseError as e:
             logger.error(f"Cache get_total_tokens error: {e}")
             return 0
