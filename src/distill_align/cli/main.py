@@ -20,6 +20,7 @@ import asyncio
 from pathlib import Path
 
 import typer
+from loguru import logger
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -545,7 +546,7 @@ def entry_point() -> None:
     except Exception as e:
         console.print(f"\n[red]❌ Unexpected error: {e}[/red]")
         logger.opt(exception=True).error("Unhandled CLI exception")
-        raise typer.Exit(1)
+        raise typer.Exit(1) from None
 
 
 if __name__ == "__main__":

@@ -12,7 +12,7 @@ from loguru import logger
 
 from ..core.exceptions import IngestionError, UnsupportedFormatError
 from ..core.schemas import DataChunk, IngestionConfig
-from .auto import AutoIngestionPipeline, EXTENSION_LOADER_MAP
+from .auto import AutoIngestionPipeline
 from .loaders.base import BaseLoader
 from .loaders.code import CodeLoader
 from .loaders.markdown import MarkdownLoader
