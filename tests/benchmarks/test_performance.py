@@ -2,7 +2,7 @@
 
 import pytest
 
-pytestmark = [pytest.mark.benchmark, pytest.mark.skipif("not config.getoption('benchmark')")]
+pytestmark = pytest.mark.benchmark
 
 
 class TestIngestionBenchmarks:
