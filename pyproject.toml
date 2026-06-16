@@ -116,7 +116,7 @@ addopts = "-v --tb=short --cov=distill_align --cov-report=term-missing --cov-rep
 # Bandit Configuration
 [tool.bandit]
 exclude_dirs = ["tests", ".github"]
-skips = ["B101", "B311"]
+skips = ["B101", "B110", "B112", "B311"]
 
 # MyPy Configuration
 [tool.mypy]

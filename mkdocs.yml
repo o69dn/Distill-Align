@@ -18,7 +18,7 @@ nav:
   - Getting Started: getting-started.md
   - Configuration: configuration.md
   - CLI Reference: cli-reference.md
-  - API Reference: api/
+  - API Reference: api/index.md
   - Pipelines:
     - Ingestion: pipelines/ingestion.md
     - Synthesis: pipelines/synthesis.md
@@ -30,10 +30,6 @@ nav:
   - Changelog: changelog.md
 plugins:
   - search
-  - mkdocstrings:
-      handlers:
-        python:
-          paths: [src]
 markdown_extensions:
   - admonition
   - pymdownx.highlight

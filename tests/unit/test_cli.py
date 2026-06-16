@@ -1,7 +1,9 @@
 """Unit tests for CLI commands using Typer's CliRunner."""
 
 import json
+import os
 
+import pytest
 from distill_align.cli.main import app
 from typer.testing import CliRunner
 
@@ -240,6 +242,7 @@ class TestCLIErrorCases:
         result = runner.invoke(app, ["validate"])
         assert result.exit_code != 0
 
+    @pytest.mark.skipif(os.environ.get("CI") == "true", reason="TUI needs a TTY, not available in CI")
     def test_tui_launches(self):
         """tui command runs (may fail if no TTY)."""
         result = runner.invoke(app, ["tui"])
