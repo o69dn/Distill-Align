@@ -27,7 +27,7 @@ python = "^3.11"
 # CLI & TUI
 typer = "^0.12.0"
 textual = "^0.58.0"
-rich = "^13.7.0"
+rich = ">=13.7,<16.0"
 # Data Validation
 pydantic = "^2.7.0"
 pydantic-settings = "^2.2.0"
