@@ -299,7 +299,7 @@ class DistillAlignApp(App):
         self.sub_title = "Structured Reasoning Extraction Factory"
 
         # Refresh stats periodically
-        self.set_interval(5.0, self._auto_refresh)
+        self.set_interval(5.0, self._refresh_callback)
 
         # Add a welcome log message
         log_view = self.query_one("#log-view", RichLog)
@@ -308,7 +308,7 @@ class DistillAlignApp(App):
             log_view.write(f"[cyan]i[/cyan] Working directory: {Path.cwd()}")
             log_view.write("[cyan]i[/cyan] Press [yellow]q[/yellow] to quit, [yellow]r[/yellow] to refresh")
 
-    def _auto_refresh(self) -> None:
+    def _refresh_callback(self) -> None:
         """Periodic auto-refresh of stats."""
         try:
             dashboard = self.query_one(DashboardTab)
