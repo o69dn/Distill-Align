@@ -2522,11 +2522,9 @@ dev = ["black (>=19.3b0) ; python_version >= \"3.6\"", "pytest (>=4.6.2)"]
 [extras]
 all = ["huggingface_hub", "pyarrow"]
 hub = ["huggingface_hub"]
-judge = []
 parquet = ["pyarrow"]
-web = []
 
 [metadata]
 lock-version = "2.1"
 python-versions = "^3.11"
-content-hash = "886f4800106ffb90c7e663457d56171b4ce4cf97bb0234d4c9599c0757cc221c"
+content-hash = "6f27c2ba928eefe7e8ab7bd398d766ccec7261e0f73f90b2ae8a204d129e2c9f"
