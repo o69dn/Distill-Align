@@ -125,3 +125,9 @@ _pytest.txt
 
 # MkDocs
 site/
+
+# Internal dev files (not for public repo)
+PLAN.md
+PROJECT_STRUCTURE.md
+uv.lock
+-p/

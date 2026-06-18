@@ -3,6 +3,8 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/o69dn/Distill-Align/actions/workflows/ci.yml/badge.svg)](https://github.com/o69dn/Distill-Align/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/distill-align.svg)](https://pypi.org/project/distill-align/)
+[![Security](https://github.com/o69dn/Distill-Align/actions/workflows/security-scan.yml/badge.svg)](https://github.com/o69dn/Distill-Align/actions/workflows/security-scan.yml)
 
 > **Distill-Align: مصنع الاستدلال المنظَّم**
 >
@@ -111,7 +113,7 @@ distill-align/
 
 1. استنساخ المستودع
 2. ثبت الاعتماديات بواسطة Poetry: `poetry install`
-3. ثبت اعتماديات التطوير: `poetry install --with dev,test`
+3. ثبت اعتماديات التطوير: `poetry install --with dev`
 4. شغّل الاختبارات: `poetry run pytest`
 5. شغّل التدقيق اللغوي: `poetry run ruff check src/`
 

@@ -1,11 +1,10 @@
-﻿cff-version: 1.2.0
+cff-version: 1.2.0
 title: Distill-Align
 message: "If you use this software, please cite it as below."
 type: software
 authors:
   - family-names: "Distill-Align Contributors"
-    given-names: ""
-    email: ""
-    orcid: ""
+    given-names: "o69dn"
+    website: "https://omar.com.ly/"
 repository-code: "https://github.com/o69dn/Distill-Align"
 license: MIT

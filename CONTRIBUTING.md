@@ -23,8 +23,9 @@ Thank you for your interest in contributing to Distill-Align! This document prov
    # Using Poetry (recommended)
    poetry install
 
-   # Or using pip
-   pip install -e ".[dev]"
+   # Or using pip (requires Poetry to resolve dev dependencies)
+   pip install -e .
+   pip install ruff mypy pytest pre-commit
    ```
 
 3. **Install pre-commit hooks**

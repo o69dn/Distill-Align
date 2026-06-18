@@ -3,6 +3,8 @@
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![CI](https://github.com/o69dn/Distill-Align/actions/workflows/ci.yml/badge.svg)](https://github.com/o69dn/Distill-Align/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/distill-align.svg)](https://pypi.org/project/distill-align/)
+[![Security](https://github.com/o69dn/Distill-Align/actions/workflows/security-scan.yml/badge.svg)](https://github.com/o69dn/Distill-Align/actions/workflows/security-scan.yml)
 
 > **Distill-Align: The Structured Reasoning Extraction Factory**
 >
@@ -113,7 +115,7 @@ distill-align/
 
 1. Clone the repository
 2. Install dependencies with Poetry: `poetry install`
-3. Install dev dependencies: `poetry install --with dev,test`
+3. Install dev dependencies: `poetry install --with dev`
 4. Run tests: `poetry run pytest`
 5. Run linting: `poetry run ruff check src/`
 

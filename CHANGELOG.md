@@ -1,17 +1,39 @@
-﻿# Changelog
+# Changelog
 
-## [0.1.1] - 2024-01-15
+All notable changes to Distill-Align will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## [0.1.1] - 2026-06-18
+
 ### Fixed
-- Fixed TextUAL _auto_refresh attribute conflict
+- Fixed Textual `_auto_refresh` attribute conflict
 - Fixed mypy type errors across multiple modules
 - Fixed ruff SIM108 ternary formatting
+- Fixed CI: ruff, mypy, mkdocs warnings, benchmark `--no-cov`, TUI skip in non-TTY
+- Fixed Bandit skips, install groups, docs, TUI test
 
-## [0.1.0] - 2024-01-01
 ### Added
-- Initial release
-- Ingestion pipeline with 9 file loaders
-- Synthesis pipeline with 4 LLM providers and 5 modes
-- Export pipeline with 4 output formats
-- TUI dashboard with real-time monitoring
-- Job management with checkpoint/resume
-- Dataset validation and analysis
+- Cost tracking and streaming JSONL/Parquet export
+- CLI `cost-report` command for usage estimation
+- `--max-tokens` option for LLM call token limits
+- Arabic README translation
+
+## [0.1.0] - 2026-06-16
+
+### Added
+- **Ingestion pipeline** with 9 file loaders (Markdown, PDF, DOCX, HTML, Jupyter, JSON, CSV, Code, Text)
+- **Synthesis pipeline** with 6 LLM providers (OpenAI, Anthropic, Gemini, Azure, Ollama, vLLM)
+- **Socratic Transformer** — converts raw content into multi-turn Q&A conversations
+- **Scaffold Action** — cleans and extracts structured content from assistant responses
+- **LLM-as-Judge evaluation** — automated quality scoring on 5 criteria
+- **DPO preference pair generation** for Direct Preference Optimization training
+- **Export pipeline** with 7 output formats (ShareGPT, Alpaca, ChatML, HuggingFace, JSONL, Parquet, Conversation)
+- **Streaming export** for large datasets without full memory load
+- **Dataset validation** — structural checks, quality scoring, deduplication, and statistics
+- **PII filtering** — detects and redacts secrets and personal information
+- **Job management** with checkpoint/resume for crash recovery
+- **TUI dashboard** with real-time monitoring via Textual
+- **Unsloth integration** — auto-generated training scripts
+- **Security scanning** — Bandit, Safety, pip-audit, CodeQL, dependency review
+- **CI/CD** — lint, type-check, test matrix (3 Python versions), security scan, docs deploy
