@@ -4,8 +4,9 @@ import json
 import os
 
 import pytest
-from distill_align.cli.main import app
 from typer.testing import CliRunner
+
+from distill_align.cli.main import app
 
 runner = CliRunner()
 

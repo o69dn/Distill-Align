@@ -1,8 +1,9 @@
 """Property-based tests for schemas."""
 
-from distill_align.core.schemas import DataChunk, SourceMetadata
 from hypothesis import given
 from hypothesis import strategies as st
+
+from distill_align.core.schemas import DataChunk, SourceMetadata
 
 
 class TestBasic:

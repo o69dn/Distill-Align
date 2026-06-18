@@ -78,7 +78,7 @@ async def _resolve_and_check(hostname: str, port: int = 443) -> None:
 
         for net in _BLOCKED_NETWORKS:
             if ip in net:
-                raise SSRFError(f"URL resolves to blocked address {ip_str} " f"(network {net.with_prefixlen})")
+                raise SSRFError(f"URL resolves to blocked address {ip_str} (network {net.with_prefixlen})")
 
 
 def _validate_url(url: str) -> str:

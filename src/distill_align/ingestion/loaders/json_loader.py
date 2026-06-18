@@ -37,8 +37,8 @@ class JSONLoader(BaseLoader):
             file_size = self.file_path.stat().st_size
             if file_size > self.MAX_FILE_BYTES:
                 raise LoaderError(
-                    f"JSON file too large: {file_size / (1024*1024):.1f} MB "
-                    f"(max {self.MAX_FILE_BYTES / (1024*1024):.0f} MB)"
+                    f"JSON file too large: {file_size / (1024 * 1024):.1f} MB "
+                    f"(max {self.MAX_FILE_BYTES / (1024 * 1024):.0f} MB)"
                 )
 
             with open(self.file_path, encoding="utf-8") as f:
@@ -72,7 +72,7 @@ class JSONLoader(BaseLoader):
         for i, line in enumerate(content.strip().split("\n")):
             if line.strip():
                 try:
-                    item = safe_json_loads(line, label=f"{self.file_path.name}:L{i+1}")
+                    item = safe_json_loads(line, label=f"{self.file_path.name}:L{i + 1}")
                     parts.append(f"[Entry {i + 1}]\n{json.dumps(item, indent=2, ensure_ascii=False)}")
                 except json.JSONDecodeError:
                     parts.append(f"[Line {i + 1}] {line}")
@@ -96,7 +96,7 @@ class JSONLoader(BaseLoader):
                     title=self.file_path.stem,
                     custom_tags={
                         "format": "json" if self.file_path.suffix == ".json" else "jsonl",
-                        "error": f"File too large ({file_size / (1024*1024):.1f} MB)",
+                        "error": f"File too large ({file_size / (1024 * 1024):.1f} MB)",
                     },
                 )
 

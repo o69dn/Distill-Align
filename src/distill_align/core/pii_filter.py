@@ -317,8 +317,7 @@ class PIIFilter:
 
         if findings:
             logger.warning(
-                f"PII scan found {len(findings)} items: "
-                f"{critical} critical, {high} high, {medium} medium, {low} low"
+                f"PII scan found {len(findings)} items: {critical} critical, {high} high, {medium} medium, {low} low"
             )
 
         return PIIFilterResult(

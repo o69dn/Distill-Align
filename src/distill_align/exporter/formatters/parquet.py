@@ -27,8 +27,8 @@ from .base import BaseFormatter
 # ---------------------------------------------------------------------------
 
 try:
-    import pyarrow as pa
-    import pyarrow.parquet as pq
+    import pyarrow as pa  # type: ignore[import-not-found]
+    import pyarrow.parquet as pq  # type: ignore[import-not-found]
 
     _HAS_PYARROW = True
 except ImportError:  # pragma: no cover
@@ -125,7 +125,7 @@ class ParquetFormatter(BaseFormatter):
         super().__init__(output_dir)
         if not _HAS_PYARROW:
             raise FormatError(
-                "pyarrow is required for Parquet export. " "Install it with: pip install distill-align[parquet]"
+                "pyarrow is required for Parquet export. Install it with: pip install distill-align[parquet]"
             )
 
     def format(
@@ -235,7 +235,7 @@ class ParquetFormatter(BaseFormatter):
                 raise FormatError("Cannot export empty conversation stream to Parquet")
 
             file_size = output_path.stat().st_size if output_path.exists() else 0
-            logger.info(f"Streamed {count} conversations to Parquet: " f"{output_path} ({file_size / 1024:.1f} KB)")
+            logger.info(f"Streamed {count} conversations to Parquet: {output_path} ({file_size / 1024:.1f} KB)")
             return output_path
 
         except FormatError:
@@ -276,10 +276,8 @@ class ParquetFormatter(BaseFormatter):
 
             # Validate messages column structure
             messages_col = table.column("messages")
-            if messages_col.num_chunks == 0:
-                return False
-
-            return True
+            num_chunks: int = messages_col.num_chunks
+            return num_chunks != 0
 
         except Exception:
             return False

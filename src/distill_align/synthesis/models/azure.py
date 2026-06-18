@@ -104,7 +104,7 @@ class AzureClient(BaseLLMClient):
             payload["response_format"] = response_format
         payload.update(kwargs)
 
-        endpoint = f"/openai/deployments/{self.model}/chat/completions" f"?api-version={self.api_version}"
+        endpoint = f"/openai/deployments/{self.model}/chat/completions?api-version={self.api_version}"
 
         try:
             response = await client.post(endpoint, json=payload)
@@ -151,7 +151,7 @@ class AzureClient(BaseLLMClient):
             payload["max_tokens"] = max_tokens
         payload.update(kwargs)
 
-        endpoint = f"/openai/deployments/{self.model}/completions" f"?api-version={self.api_version}"
+        endpoint = f"/openai/deployments/{self.model}/completions?api-version={self.api_version}"
 
         try:
             response = await client.post(endpoint, json=payload)

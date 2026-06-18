@@ -125,8 +125,7 @@ class PreferenceGenerator:
 
             if best_score - worst_score < self.min_score_gap:
                 logger.debug(
-                    f"Score gap {best_score - worst_score:.3f} < "
-                    f"{self.min_score_gap} for source {source_id}, skipping"
+                    f"Score gap {best_score - worst_score:.3f} < {self.min_score_gap} for source {source_id}, skipping"
                 )
                 continue
 
