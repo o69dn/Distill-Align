@@ -45,7 +45,7 @@ Synthesize chunks into structured conversations.
 distill-align synthesize INPUT [OPTIONS]
   INPUT                  Input chunks JSON file
   --output, -o           Output file path (default: ./conversations.json)
-  --provider, -p         LLM provider (openai, ollama, vllm) (default: openai)
+  --provider, -p         LLM provider (openai, ollama, vllm, anthropic, gemini, azure) (default: openai)
   --model, -m            Model name (default: gpt-4o)
   --base-url             API base URL
   --api-key              API key (or use OPENAI_API_KEY env var)
@@ -57,6 +57,10 @@ distill-align synthesize INPUT [OPTIONS]
   --no-checkpoint        Disable checkpointing
   --prompts              Custom prompts directory
   --mode                 Conversation mode: default, teach, debug, review, qa, explain
+  --judge                Enable LLM-as-judge evaluation
+  --judge-model          Model for judge (defaults to --model)
+
+After completion, a cost summary panel shows estimated token usage and API cost.
 ```
 
 ### `distill-align export`
@@ -66,12 +70,15 @@ Export conversations to training formats.
 ```bash
 distill-align export INPUT [OPTIONS]
   INPUT                Input conversations JSON file
-  --format, -f         Export formats (comma-separated) (default: sharegpt)
+  --format, -f         Export formats (comma-separated): sharegpt, alpaca, chatml,
+                       conversation, hf_messages, jsonl, parquet (default: sharegpt)
   --output-dir, -o     Output directory (default: ./output)
   --model              Unsloth model name
   --no-unsloth         Skip Unsloth script generation
   --split              Split into train/val/test
   --card               Generate dataset card
+
+Note: parquet format requires `pip install distill-align[parquet]` or `pip install pyarrow`.
 ```
 
 ### `distill-align validate`

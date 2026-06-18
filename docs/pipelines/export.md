@@ -31,7 +31,7 @@ ConversationSchemas (from synthesis)
 
 ## Export Formats
 
-Distill-Align supports **4 export formats**:
+Distill-Align supports **6 export formats**:
 
 ### ShareGPT
 
@@ -83,6 +83,41 @@ Generic conversation format:
   ]
 }
 ```
+
+### HF Messages (HuggingFace)
+
+HuggingFace `messages` format, compatible with `transformers` tokenizer's `apply_chat_template`:
+
+```json
+{"messages": [{"role": "user", "content": "What is X?"}, {"role": "assistant", "content": "X is..."}]}
+```
+
+One JSON object per line (JSONL) for easy streaming.
+
+### JSONL
+
+Newline-delimited JSON with `instruction`/`output` fields, one conversation per line:
+
+```jsonl
+{"instruction": "What is X?", "output": "X is a concept that..."}
+{"instruction": "Explain Y", "output": "Y refers to..."}
+```
+
+Ideal for high-volume datasets and streaming pipelines.
+
+### Parquet
+
+Apache Parquet export for efficient columnar storage. Requires `pyarrow`:
+
+```bash
+pip install distill-align[parquet]
+# or
+pip install pyarrow
+
+distill-align export --input conversations.json --format parquet --output-dir ./output
+```
+
+Parquet supports streaming for memory-efficient export of large datasets. Output schema includes `id`, `instruction`, `output`, `system`, and a JSON-encoded `messages` column.
 
 ## Dataset Splitting
 

@@ -150,6 +150,8 @@ def synthesize(
     no_checkpoint: bool = typer.Option(False, "--no-checkpoint", flag_value=True, help="Disable checkpointing"),
     prompt_dir: str | None = typer.Option(None, "--prompts", help="Custom prompts directory"),
     mode: str = typer.Option("default", "--mode", help="Conversation mode: default, teach, debug, review, qa, explain"),
+    judge: bool = typer.Option(False, "--judge", flag_value=True, help="Enable LLM-as-judge evaluation"),
+    judge_model: str | None = typer.Option(None, "--judge-model", help="Model for judge (defaults to --model)"),
 ):
     """Synthesize chunks into structured conversations."""
     from ..core.cache import CacheManager
@@ -162,13 +164,14 @@ def synthesize(
 
     import json
 
+    from ..core.json_utils import safe_json_load
+
     input_path = Path(input)
     if not input_path.exists():
         console.print(f"[red]Error: Input file does not exist: {input}[/red]")
         raise typer.Exit(1)
 
-    with open(input_path, encoding="utf-8") as f:
-        chunks_data = json.load(f)
+    chunks_data = safe_json_load(input_path)
     chunks = [DataChunk(**chunk) for chunk in chunks_data]
 
     # Security: deprecate --api-key in favor of environment variables
@@ -187,17 +190,20 @@ def synthesize(
     checkpoint = None if no_checkpoint else CheckpointManager()
 
     config = SynthesisConfig(
-        llm_provider=cast(Literal["openai", "ollama", "vllm"], provider),
+        llm_provider=cast(Literal["openai", "ollama", "vllm", "anthropic", "gemini", "azure"], provider),
         model_name=model,
         base_url=base_url,
         api_key=api_key,
         max_concurrency=concurrency,
         max_rpm=rpm,
+        enable_judge=judge,
+        judge_model=judge_model,
     )
     pipeline = SynthesisPipeline(
         config=config,
         cache_manager=cache,
         checkpoint_manager=checkpoint,
+        use_cache=not no_cache,
     )
 
     # Use custom conversation mode if specified
@@ -246,6 +252,16 @@ def synthesize(
             table.add_row("Cache Entries", str(cache_stats.total_entries))
 
         console.print(table)
+
+        # Show cost report if any requests were made
+        cost_stats = pipeline.get_cost_stats()
+        if cost_stats.num_requests > 0:
+            cost_panel = Panel(
+                pipeline.get_cost_report(),
+                title="💰 Cost Summary",
+                style="bold cyan",
+            )
+            console.print(cost_panel)
     finally:
         # Cleanup HTTP connections to prevent leaks
         asyncio.run(pipeline.close())
@@ -270,20 +286,19 @@ def export(
 
     console.print(Panel.fit("📤 Export Pipeline", style="bold green"))
 
-    import json
+    from ..core.json_utils import safe_json_load
 
     input_path = Path(input)
     if not input_path.exists():
         console.print(f"[red]Error: Input file does not exist: {input}[/red]")
         raise typer.Exit(1)
 
-    with open(input_path, encoding="utf-8") as f:
-        conv_data = json.load(f)
+    conv_data = safe_json_load(input_path)
     conversations = [ConversationSchema(**conv) for conv in conv_data]
 
     format_list = [f.strip() for f in formats.split(",")]
     config = ExportConfig(
-        formats=cast(list[Literal["sharegpt", "alpaca"]], format_list),
+        formats=cast(list[Literal["sharegpt", "alpaca", "chatml", "conversation", "hf_messages"]], format_list),
         output_dir=output_dir,
         unsloth_model=model_name,
     )
@@ -326,15 +341,14 @@ def validate(
 
     console.print(Panel.fit("🔍 Dataset Validation", style="bold yellow"))
 
-    import json
+    from ..core.json_utils import safe_json_load
 
     input_path = Path(input)
     if not input_path.exists():
         console.print(f"[red]Error: Input file does not exist: {input}[/red]")
         raise typer.Exit(1)
 
-    with open(input_path, encoding="utf-8") as f:
-        conv_data = json.load(f)
+    conv_data = safe_json_load(input_path)
     conversations = [ConversationSchema(**conv) for conv in conv_data]
 
     validator = DatasetValidator()

@@ -80,6 +80,7 @@ class ConversationSchema(BaseModel):
     turns: list[SynthesizedTurn]
     reasoning_trace: str | None = None  # Captured deep thinking
     confidence_score: float | None = Field(None, ge=0.0, le=1.0)
+    judge_scores: dict[str, Any] | None = None  # LLM-as-judge evaluation scores
 
     def get_system_prompt(self) -> str | None:
         """Extract system prompt if present."""
@@ -147,12 +148,14 @@ class IngestionConfig(BaseModel):
     respect_headers: bool = True  # For markdown/code
     max_chunk_tokens: int = Field(default=4000, ge=1)
     include_metadata: bool = True
+    scan_pii: bool = False  # Enable PII/secret scanning during ingestion
+    redact_pii: bool = True  # Redact findings when scan_pii is enabled
 
 
 class SynthesisConfig(BaseModel):
     """Configuration for the synthesis pipeline."""
 
-    llm_provider: Literal["openai", "ollama", "vllm"] = "openai"
+    llm_provider: Literal["openai", "ollama", "vllm", "anthropic", "gemini", "azure"] = "openai"
     model_name: str = "gpt-4o"
     base_url: str | None = None
     api_key: str | None = None
@@ -162,12 +165,14 @@ class SynthesisConfig(BaseModel):
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     socratic_enabled: bool = True
     scaffold_enabled: bool = True
+    enable_judge: bool = False  # LLM-as-judge evaluation of generated conversations
+    judge_model: str | None = None  # Override model for judge (defaults to model_name)
 
 
 class ExportConfig(BaseModel):
     """Configuration for the export pipeline."""
 
-    formats: list[Literal["sharegpt", "alpaca"]] = Field(default=["sharegpt"])
+    formats: list[Literal["sharegpt", "alpaca", "chatml", "conversation", "hf_messages", "jsonl", "parquet"]] = Field(default=["sharegpt"])
     output_dir: str = "./output"
     generate_unsloth_script: bool = True
     unsloth_model: str = "unsloth/Meta-Llama-3.1-8B-Instruct"

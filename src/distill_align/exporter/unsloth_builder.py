@@ -29,7 +29,7 @@ from transformers import TrainingArguments
 # =============================================================================
 
 # Model configuration
-MODEL_NAME = "{{ model_name }}"
+MODEL_NAME = {{ model_name | tojson }}
 MAX_SEQ_LENGTH = {{ max_seq_length }}
 DTYPE = torch.{{ dtype }}
 LOAD_IN_4BIT = {{ load_in_4bit }}
@@ -47,15 +47,15 @@ NUM_EPOCHS = {{ num_epochs }}
 LEARNING_RATE = {{ learning_rate }}
 WARMUP_STEPS = {{ warmup_steps }}
 MAX_STEPS = {{ max_steps }}
-OPTIMIZER = "{{ optimizer }}"
-LR_SCHEDULER = "{{ lr_scheduler }}"
+OPTIMIZER = {{ optimizer | tojson }}
+LR_SCHEDULER = {{ lr_scheduler | tojson }}
 
 # Dataset configuration
-DATASET_PATH = "{{ dataset_path }}"
-TEXT_FIELD = "{{ text_field }}"
+DATASET_PATH = {{ dataset_path | tojson }}
+TEXT_FIELD = {{ text_field | tojson }}
 
 # Output configuration
-OUTPUT_DIR = "{{ output_dir }}"
+OUTPUT_DIR = {{ output_dir | tojson }}
 
 # =============================================================================
 # Model Loading

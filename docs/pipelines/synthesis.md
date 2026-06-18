@@ -31,14 +31,16 @@ DataChunks (from ingestion)
 
 ## LLM Providers
 
-Distill-Align supports **4 LLM backends**:
+Distill-Align supports **6 LLM backends**:
 
-| Provider | Default Base URL | Description |
-|----------|-----------------|-------------|
-| OpenAI | `https://api.openai.com/v1` | GPT-4o, GPT-4, GPT-3.5, etc. |
-| Ollama | `http://localhost:11434` | Local LLMs (Llama 3, Mistral, etc.) |
-| vLLM | `http://localhost:8000/v1` | High-throughput serving |
-| Custom | User-defined | Any OpenAI-compatible endpoint |
+| Provider | CLI Value | Default Base URL | Description |
+|----------|-----------|-----------------|-------------|
+| OpenAI | `openai` | `https://api.openai.com/v1` | GPT-4o, GPT-4, GPT-3.5, etc. |
+| Ollama | `ollama` | `http://localhost:11434` | Local LLMs (Llama 3, Mistral, etc.) |
+| vLLM | `vllm` | `http://localhost:8000/v1` | High-throughput serving |
+| Anthropic | `anthropic` | `https://api.anthropic.com/v1` | Claude 3.5 Sonnet, Haiku, etc. |
+| Gemini | `gemini` | `https://generativelanguage.googleapis.com/v1beta` | Gemini 1.5 Pro, Flash |
+| Azure | `azure` | `https://api.openai.azure.com` | Azure OpenAI (GPT-4o, etc.) |
 
 ### OpenAI
 
@@ -150,3 +152,48 @@ distill-align synthesize chunks.json --provider ollama --model llama3.1
 ```bash
 distill-align synthesize chunks.json --job-id project-alpha --resume
 ```
+
+### With LLM-as-judge evaluation
+
+```bash
+distill-align synthesize chunks.json --judge --judge-model gpt-4o-mini
+```
+
+### With Anthropic Claude
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+distill-align synthesize chunks.json --provider anthropic --model claude-sonnet-4-20250514
+```
+
+### With Gemini
+
+```bash
+export GOOGLE_API_KEY=...
+distill-align synthesize chunks.json --provider gemini --model gemini-2.0-flash
+```
+
+### With Azure OpenAI
+
+```bash
+export AZURE_OPENAI_API_KEY=...
+distill-align synthesize chunks.json --provider azure --model gpt-4o-deployment --base-url https://my-resource.openai.azure.com
+```
+
+## Cost Tracking
+
+After synthesis completes, a cost summary panel displays estimated token usage and API cost:
+
+```
+── Cost Report ──────────────────────
+  Model:               gpt-4o
+  Requests:             42
+  Input tokens:         85,432
+  Output tokens:        12,678
+  Total tokens:         98,110
+  Avg tokens/request:   2,336.0
+  Estimated cost (USD): $0.4321
+─────────────────────────────────────
+```
+
+Costs are tracked automatically using tiktoken-based token counting and model-specific pricing tables. Pricing is resolved for all supported providers, including Azure deployment name stripping.

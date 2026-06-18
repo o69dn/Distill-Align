@@ -5,6 +5,7 @@ All formatters should inherit from this base class.
 """
 
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,27 @@ class BaseFormatter(ABC):
             True if valid.
         """
         pass
+
+    def format_stream(
+        self,
+        conversations: Iterable[ConversationSchema],
+        filename: str,
+    ) -> Path:
+        """
+        Format conversations in a streaming fashion from an iterable.
+
+        The default implementation materialises the iterable into a list and
+        delegates to :meth:`format`. Subclasses that support true streaming
+        (e.g. JSONL) should override this method.
+
+        Args:
+            conversations: Iterable of conversations to format (streaming).
+            filename: Output filename.
+
+        Returns:
+            Path to the output file.
+        """
+        return self.format(list(conversations), filename)
 
     def _ensure_json_extension(self, filename: str) -> str:
         """

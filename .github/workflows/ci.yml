@@ -94,3 +94,30 @@ jobs:
         with:
           name: dist
           path: dist/
+
+  smoke-test:
+    name: Smoke Test (installed package)
+    runs-on: ubuntu-latest
+    needs: [build]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Download built package
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+      - name: Install package
+        run: |
+          pip install --no-input dist/*.whl
+      - name: Verify CLI entry point
+        run: |
+          distill-align --help
+      - name: Verify version command
+        run: |
+          distill-align version
+      - name: Verify status command
+        run: |
+          distill-align status

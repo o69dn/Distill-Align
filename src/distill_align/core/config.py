@@ -36,9 +36,11 @@ class Settings(BaseSettings):
     llm_temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     socratic_enabled: bool = True
     scaffold_enabled: bool = True
+    enable_judge: bool = False
+    judge_model: str | None = None
 
     # Export
-    export_formats: str = "sharegpt"  # comma-separated: sharegpt,alpaca
+    export_formats: str = "sharegpt"  # comma-separated: sharegpt,alpaca,chatml,conversation,hf_messages,jsonl,parquet
     export_output_dir: str = "./output"
     generate_unsloth_script: bool = True
     unsloth_model: str = "unsloth/Meta-Llama-3.1-8B-Instruct"

@@ -48,21 +48,24 @@ python-docx = ">=1.1.0"
 beautifulsoup4 = ">=4.12.0"
 # Optional: HuggingFace Hub support
 huggingface_hub = {version = "^0.23.0", optional = true}
-click = "8.1.8"
+# Optional: Parquet export
+pyarrow = {version = ">=14.0.0", optional = true}
 
 [tool.poetry.extras]
 hub = ["huggingface_hub"]
+parquet = ["pyarrow"]
 web = []
 judge = []
-all = ["huggingface_hub"]
+all = ["huggingface_hub", "pyarrow"]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^8.2.0"
-pytest-asyncio = "^0.23.0"
+pytest = "^9.0.0"
+pytest-asyncio = "^0.25.0"
 pytest-cov = "^5.0.0"
+pytest-httpx = "^0.36.0"
 pre-commit = "^3.7.0"
 mypy = "^1.10.0"
-ruff = "^0.4.0"
+ruff = "^0.9.0"
 mkdocs = "^1.6.0"
 mkdocs-material = "^9.5.0"
 
@@ -111,12 +114,12 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
-addopts = "-v --tb=short --cov=distill_align --cov-report=term-missing --cov-report=xml --cov-report=html"
+addopts = "-v --tb=short --cov=distill_align --cov-report=term-missing --cov-report=xml --cov-report=html --cov-fail-under=25"
 
 # Bandit Configuration
 [tool.bandit]
 exclude_dirs = ["tests", ".github"]
-skips = ["B101", "B110", "B112", "B311"]
+skips = ["B110", "B112", "B311"]
 
 # MyPy Configuration
 [tool.mypy]

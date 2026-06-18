@@ -7,7 +7,7 @@ based on model pricing.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 from pydantic import BaseModel
@@ -15,39 +15,67 @@ from pydantic import BaseModel
 if TYPE_CHECKING:
     import tiktoken  # type: ignore[import-not-found]
 
-# Pricing per 1M tokens (USD, as of 2024)
+# Pricing per 1M tokens (USD, as of early 2026)
 MODEL_PRICING: dict[str, dict[str, float]] = {
     # OpenAI models
     "gpt-4o": {"input": 2.50, "output": 10.00},
     "gpt-4o-mini": {"input": 0.15, "output": 0.60},
+    "gpt-4.1": {"input": 2.00, "output": 8.00},
+    "gpt-4.1-mini": {"input": 0.40, "output": 1.60},
+    "gpt-4.1-nano": {"input": 0.10, "output": 0.40},
     "gpt-4-turbo": {"input": 10.00, "output": 30.00},
     "gpt-4": {"input": 30.00, "output": 60.00},
     "gpt-3.5-turbo": {"input": 0.50, "output": 1.50},
     "o1": {"input": 15.00, "output": 60.00},
     "o1-mini": {"input": 3.00, "output": 12.00},
     "o3-mini": {"input": 1.10, "output": 4.40},
+    "o4-mini": {"input": 1.10, "output": 4.40},
     # Claude models (Anthropic)
     "claude-3-5-sonnet": {"input": 3.00, "output": 15.00},
+    "claude-3-5-haiku": {"input": 0.80, "output": 4.00},
     "claude-3-opus": {"input": 15.00, "output": 75.00},
     "claude-3-haiku": {"input": 0.25, "output": 1.25},
-    # Open-source (Ollama/vLLM) - typically free, but list for accounting
+    "claude-sonnet-4": {"input": 3.00, "output": 15.00},
+    "claude-sonnet-4-20250514": {"input": 3.00, "output": 15.00},
+    # Gemini models (Google)
+    "gemini-2.0-flash": {"input": 0.10, "output": 0.40},
+    "gemini-2.0-flash-lite": {"input": 0.075, "output": 0.30},
+    "gemini-2.5-pro": {"input": 1.25, "output": 10.00},
+    "gemini-2.5-flash": {"input": 0.15, "output": 0.60},
+    # Azure OpenAI deployments — same as their base OpenAI models
+    # (matched dynamically via _resolve_pricing)
+    # Open-source (Ollama/vLLM) — typically free, but listed for accounting
     "llama3.1": {"input": 0.0, "output": 0.0},
     "llama3.2": {"input": 0.0, "output": 0.0},
+    "llama3.3": {"input": 0.0, "output": 0.0},
     "mistral": {"input": 0.0, "output": 0.0},
     "qwen2.5": {"input": 0.0, "output": 0.0},
+    "deepseek-r1": {"input": 0.0, "output": 0.0},
 }
+
+
+# Known prefixes for Azure deployments — strip to get the base model
+AZURE_DEPLOYMENT_PREFIXES = ("gpt-", "o1", "o3", "o4")
 
 
 # Model to tiktoken encoding mapping
 MODEL_ENCODING_MAP: dict[str, str] = {
     "gpt-4o": "o200k_base",
     "gpt-4o-mini": "o200k_base",
+    "gpt-4.1": "o200k_base",
+    "gpt-4.1-mini": "o200k_base",
+    "gpt-4.1-nano": "o200k_base",
     "gpt-4-turbo": "cl100k_base",
     "gpt-4": "cl100k_base",
     "gpt-3.5-turbo": "cl100k_base",
     "o1": "o200k_base",
     "o1-mini": "o200k_base",
     "o3-mini": "o200k_base",
+    "o4-mini": "o200k_base",
+    "gemini-2.0-flash": "o200k_base",
+    "gemini-2.5-pro": "o200k_base",
+    "claude-sonnet-4": "cl100k_base",
+    "claude-3-5-sonnet": "cl100k_base",
 }
 
 
@@ -177,13 +205,78 @@ class Tokenizer:
         Returns:
             Estimated cost in USD.
         """
-        pricing = MODEL_PRICING.get(self.model, {"input": 0.0, "output": 0.0})
+        pricing = self._resolve_pricing(self.model)
 
         # Pricing is per 1M tokens
         input_cost = (input_tokens / 1_000_000) * pricing["input"]
         output_cost = (output_tokens / 1_000_000) * pricing["output"]
 
         return input_cost + output_cost
+
+    @staticmethod
+    def _resolve_pricing(model: str) -> dict[str, float]:
+        """Resolve pricing for a model, handling Azure deployment names.
+
+        Azure deployments often use names like ``gpt-4o-deployment``.
+        This strips known prefixes to find the base model pricing, or
+        tries increasingly shorter suffixes as a fallback.
+
+        Args:
+            model: Model name or Azure deployment name.
+
+        Returns:
+            Dict with ``input`` and ``output`` prices per 1M tokens.
+        """
+        # Direct match first
+        if model in MODEL_PRICING:
+            return MODEL_PRICING[model]
+
+        # Azure deployment names: strip known prefixes
+        for prefix in AZURE_DEPLOYMENT_PREFIXES:
+            if model.startswith(prefix):
+                # Try exact prefix match first
+                if prefix in MODEL_PRICING:
+                    return MODEL_PRICING[prefix]
+                # Try progressively shorter suffixes
+                base = model
+                while base:
+                    if base in MODEL_PRICING:
+                        return MODEL_PRICING[base]
+                    # Remove last dash-segment
+                    if "-" in base:
+                        base = base.rsplit("-", 1)[0]
+                    else:
+                        break
+
+        # Fallback: generic zero pricing
+        logger.debug(f"No pricing found for model '{model}', assuming $0")
+        return {"input": 0.0, "output": 0.0}
+
+    def record_usage_from_response(self, response_data: dict[str, Any]) -> float:
+        """Record token usage from an LLM API response dict.
+
+        Expects a dict with a ``usage`` key containing ``prompt_tokens``
+        (or ``input_tokens``) and ``completion_tokens`` (or
+        ``output_tokens``) integers.
+
+        Args:
+            response_data: The raw response dict from an LLM call.
+
+        Returns:
+            Estimated cost in USD for this request.
+        """
+        usage = response_data.get("usage", {})
+        if not isinstance(usage, dict):
+            return 0.0
+
+        input_tokens = usage.get("prompt_tokens") or usage.get("input_tokens", 0)
+        output_tokens = usage.get("completion_tokens") or usage.get("output_tokens", 0)
+
+        self._total_input_tokens += input_tokens
+        self._total_output_tokens += output_tokens
+        self._num_requests += 1
+
+        return self.estimate_cost(input_tokens, output_tokens)
 
     def record_usage(self, input_tokens: int, output_tokens: int = 0) -> None:
         """
@@ -217,6 +310,26 @@ class Tokenizer:
             num_requests=self._num_requests,
             avg_tokens_per_request=avg,
         )
+
+    def get_cost_report_string(self) -> str:
+        """Get a human-readable cost report.
+
+        Returns:
+            Multi-line string with cost summary.
+        """
+        stats = self.get_stats()
+        lines = [
+            "── Cost Report ──────────────────────",
+            f"  Model:               {stats.model}",
+            f"  Requests:             {stats.num_requests}",
+            f"  Input tokens:         {stats.total_input_tokens:,}",
+            f"  Output tokens:        {stats.total_output_tokens:,}",
+            f"  Total tokens:         {stats.total_tokens:,}",
+            f"  Avg tokens/request:   {stats.avg_tokens_per_request:.1f}",
+            f"  Estimated cost (USD): ${stats.estimated_cost_usd:.4f}",
+            "─────────────────────────────────────",
+        ]
+        return "\n".join(lines)
 
     def estimate_batch_cost(
         self,
@@ -252,3 +365,70 @@ class Tokenizer:
         self._total_input_tokens = 0
         self._total_output_tokens = 0
         self._num_requests = 0
+
+
+class CostTrackingClient:
+    """A transparent proxy around a :class:`BaseLLMClient` that records
+    token usage into a :class:`Tokenizer` on every API response.
+
+    All calls are forwarded to the wrapped client, and token usage from
+    the response is automatically recorded via :meth:`Tokenizer.record_usage`.
+
+    Usage::
+
+        tokenizer = Tokenizer(model="gpt-4o")
+        raw_client = OpenAIClient(...)
+        client = CostTrackingClient(raw_client, tokenizer)
+
+        # Use ``client`` everywhere — calls are forwarded transparently
+        response = await client.chat(messages=[...])
+        text = await client.generate(system_prompt=..., user_prompt=...)
+    """
+
+    def __init__(self, client: Any, tokenizer: Tokenizer) -> None:
+        object.__setattr__(self, "_wrapped_client", client)
+        object.__setattr__(self, "_tokenizer", tokenizer)
+
+    async def chat(self, *args: Any, **kwargs: Any) -> Any:
+        """Proxy chat() — records usage from the raw response."""
+        response = await self._wrapped_client.chat(*args, **kwargs)
+        if response.usage:
+            self._tokenizer.record_usage_from_response(response.raw_response)
+        return response
+
+    async def complete(self, *args: Any, **kwargs: Any) -> Any:
+        """Proxy complete() — records usage from the raw response."""
+        response = await self._wrapped_client.complete(*args, **kwargs)
+        if response.usage:
+            self._tokenizer.record_usage_from_response(response.raw_response)
+        return response
+
+    async def generate(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.7,
+        max_tokens: int | None = None,
+        response_format: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> str:
+        """Proxy generate() — routes through our chat() for recording."""
+        from .models.base import LLMMessage
+
+        messages = [
+            LLMMessage(role="system", content=system_prompt),
+            LLMMessage(role="user", content=user_prompt),
+        ]
+        response = await self.chat(
+            messages, temperature=temperature, max_tokens=max_tokens,
+            response_format=response_format, **kwargs,
+        )
+        return response.content
+
+    def __getattr__(self, name: str) -> Any:
+        """Forward other attribute access to the wrapped client."""
+        return getattr(self._wrapped_client, name)
+
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Set attributes on the wrapped client."""
+        setattr(self._wrapped_client, name, value)

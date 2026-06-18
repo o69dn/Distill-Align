@@ -34,6 +34,12 @@ class LoaderError(IngestionError):
     pass
 
 
+class SSRFError(LoaderError):
+    """Error when a URL resolves to a blocked or unsafe address."""
+
+    pass
+
+
 class ChunkerError(IngestionError):
     """Error during chunking."""
 

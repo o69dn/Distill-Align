@@ -6,21 +6,33 @@
 
 > **Distill-Align: The Structured Reasoning Extraction Factory**
 >
-> A CLI/Python framework that automates the generation of high-quality, fine-tuning datasets from raw domain data. It utilizes high-context frontier reasoning models as teachers, captures their deep thinking traces, and filters/prunes those traces into highly structured instruction-following formats (ShareGPT/Alpaca JSON) optimized for Unsloth Studio fine-tuning.
+> A CLI/Python framework that automates the generation of high-quality, fine-tuning datasets from raw domain data. It utilizes high-context frontier reasoning models as teachers, captures their deep thinking traces, and filters/prunes those traces into highly structured instruction-following formats optimized for fine-tuning.
+
+🌐 **العربية**: [README.ar.md](README.ar.md) — الترجمة العربية لهذا الدليل.
 
 ## Features
 
-- **Smart Ingestion**: Async chunking pipelines with semantic-aware splitting for Markdown and Code.
-- **Multi-Provider Synthesis**: Supports OpenAI, Ollama, and vLLM backends with async worker pools.
+- **Smart Ingestion**: Async chunking pipelines with semantic-aware splitting for Markdown and Code (PDF, DOCX, HTML, CSV, JSON, Jupyter notebooks, and web pages also supported).
+- **Multi-Provider Synthesis**: Supports **OpenAI**, **Ollama**, **vLLM**, **Anthropic Claude**, **Google Gemini**, and **Azure OpenAI** backends with async worker pools.
 - **Socratic Transformer**: Converts raw reasoning into structured, multi-turn conversational Q&A.
 - **Scaffold Action Pruner**: Strips conversational filler to extract pure tool-calling or structural output.
-- **Unsloth Integration**: Auto-generates optimized `train.py` scripts and exports to ShareGPT/Alpaca formats.
+- **LLM-as-Judge Evaluation** (optional): Automated quality scoring of generated conversations using a separate judge model, with confidence scores normalized 0–1.
+- **Preference (DPO) Generation**: Create preference pairs from judge-scored conversations for Direct Preference Optimization training.
+- **Multiple Export Formats**: ShareGPT, Alpaca, ChatML, HuggingFace messages (JSONL/JSON), streaming JSON Lines, and **Apache Parquet**.
+- **Streaming Export**: Export large datasets without loading them entirely into memory using iterative producers.
+- **Cost Tracking**: Pay-as-you-go cost estimation and tracking across all providers with per-request token accounting.
+- **Unsloth Integration**: Auto-generates optimized `train.py` scripts for Unsloth fine-tuning.
 - **Rich TUI**: Interactive terminal dashboard for monitoring pipeline execution.
 
 ## Installation
 
 ```bash
 pip install distill-align
+
+# With optional dependencies
+pip install distill-align[parquet]   # Parquet export support
+pip install distill-align[hub]       # HuggingFace Hub integration
+pip install distill-align[all]       # All extras
 ```
 
 ## Quick Start
@@ -29,15 +41,54 @@ pip install distill-align
 # Ingest and process data
 distill-align ingest --source ./my-docs --output ./chunks.json
 
-# Synthesize conversations
-distill-align synthesize --input ./chunks.json --output ./conversations.json
+# Synthesize conversations (with judge evaluation)
+distill-align synthesize \
+    --input ./chunks.json \
+    --output ./conversations.json \
+    --provider openai \
+    --model gpt-4o \
+    --judge \
+    --judge-model gpt-4o-mini
 
 # Export to training format
-distill-align export --input ./conversations.json --format sharegpt --output ./dataset
+distill-align export \
+    --input ./conversations.json \
+    --format hf_messages \
+    --output ./dataset
+
+# Generate preference pairs for DPO training
+distill-align export \
+    --input ./conversations.json \
+    --format preference \
+    --output ./dpo-pairs
 
 # Launch TUI
 distill-align tui
 ```
+
+## Supported Providers
+
+| Provider    | SDK-Free | Structured Output | Auth                          |
+|-------------|----------|-------------------|-------------------------------|
+| OpenAI      | ✓        | ✓                 | API key                       |
+| Anthropic   | ✓        | ✓ (JSON mode)     | API key                       |
+| Google Gemini | ✓      | ✓ (MIME type)     | API key                       |
+| Azure OpenAI | ✓       | ✓                 | API key or Entra ID (OAuth2)  |
+| Ollama      | ✓        | —                 | None (local)                  |
+| vLLM        | ✓        | ✓ (OpenAI compat) | None / API key                |
+
+## Export Formats
+
+| Format             | Extension | Description                                    |
+|--------------------|-----------|------------------------------------------------|
+| `hf_messages`      | `.jsonl`  | HuggingFace messages format (JSONL recommended) |
+| `jsonl`            | `.jsonl`  | Generic JSON Lines (streaming-capable)         |
+| `parquet`          | `.parquet`| Columnar format (requires `pyarrow`)           |
+| `sharegpt`         | `.json`   | ShareGPT conversation format                   |
+| `alpaca`           | `.json`   | Alpaca instruction format                      |
+| `chatml`           | `.json`   | ChatML markup format                           |
+| `conversation`     | `.json`   | Raw conversation schema export                 |
+| `preference`       | `.json`   | DPO preference pairs (requires judge scores)   |
 
 ## Project Structure
 
@@ -46,21 +97,25 @@ This project follows a **Modular Monolith** architecture.
 ```text
 distill-align/
 ├── src/distill_align/    # Core application package
-│   ├── core/             # Config, schemas, logging
-│   ├── ingestion/        # Data loaders and chunkers
-│   ├── synthesis/        # LLM client, worker pool, prompts
-│   ├── exporter/         # Formatters and Unsloth builder
+│   ├── core/             # Config, schemas, logging, caching, checkpointing
+│   ├── ingestion/        # Data loaders and chunkers (PDF, DOCX, HTML, code, etc.)
+│   ├── synthesis/        # LLM clients, worker pool, prompts, judge, cost tracking
+│   │   └── models/       # Provider-specific clients (OpenAI, Anthropic, Gemini, Azure, Ollama, vLLM)
+│   ├── exporter/         # Formatters, validator, splitter, preference generator
+│   │   └── formatters/   # Output format converters (JSONL, Parquet, ShareGPT, Alpaca, etc.)
 │   ├── tui/              # Textual terminal UI
 │   └── cli/              # Typer CLI entry points
 ├── tests/                # Pytest suite
-└── docs/                 # Documentation
+└── docs/                 # Documentation (MkDocs)
 ```
 
 ## Development
 
 1. Clone the repository
 2. Install dependencies with Poetry: `poetry install`
-3. Run tests: `poetry run pytest`
+3. Install dev dependencies: `poetry install --with dev,test`
+4. Run tests: `poetry run pytest`
+5. Run linting: `poetry run ruff check src/`
 
 ## License
 

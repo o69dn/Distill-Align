@@ -311,3 +311,315 @@ class TestTokenizer:
         assert estimate.num_requests == 3
         assert estimate.total_input_tokens > 0
         assert estimate.total_output_tokens == 300
+
+    def test_resolve_pricing_direct_match(self):
+        pricing = Tokenizer._resolve_pricing("gpt-4o")
+        assert pricing["input"] == 2.50
+        assert pricing["output"] == 10.00
+
+    def test_resolve_pricing_azure_deployment(self):
+        """Azure deployment names should resolve to base model pricing."""
+        pricing = Tokenizer._resolve_pricing("gpt-4o-deployment")
+        assert pricing["input"] == 2.50
+
+    def test_resolve_pricing_unknown_model(self):
+        pricing = Tokenizer._resolve_pricing("totally-unknown-model")
+        assert pricing["input"] == 0.0
+        assert pricing["output"] == 0.0
+
+    def test_resolve_pricing_oss_model(self):
+        pricing = Tokenizer._resolve_pricing("llama3.1")
+        assert pricing["input"] == 0.0
+        assert pricing["output"] == 0.0
+
+    def test_record_usage_from_response(self):
+        tokenizer = Tokenizer(model="gpt-4o-mini")
+        response_data = {
+            "usage": {
+                "prompt_tokens": 150,
+                "completion_tokens": 75,
+                "total_tokens": 225,
+            }
+        }
+        cost = tokenizer.record_usage_from_response(response_data)
+        assert cost > 0
+        stats = tokenizer.get_stats()
+        assert stats.total_input_tokens == 150
+        assert stats.total_output_tokens == 75
+        assert stats.num_requests == 1
+
+    def test_record_usage_from_response_anthropic_format(self):
+        """Anthropic uses input_tokens / output_tokens naming."""
+        tokenizer = Tokenizer(model="claude-sonnet-4-20250514")
+        response_data = {
+            "usage": {
+                "input_tokens": 200,
+                "output_tokens": 50,
+            }
+        }
+        cost = tokenizer.record_usage_from_response(response_data)
+        assert cost > 0
+        stats = tokenizer.get_stats()
+        assert stats.total_input_tokens == 200
+        assert stats.total_output_tokens == 50
+
+    def test_record_usage_from_response_empty(self):
+        """Should gracefully handle missing usage data."""
+        tokenizer = Tokenizer(model="gpt-4o")
+        cost = tokenizer.record_usage_from_response({})
+        assert cost == 0.0
+        assert tokenizer.get_stats().num_requests == 1  # Still counts the request
+
+    def test_get_cost_report_string(self):
+        tokenizer = Tokenizer(model="gpt-4o")
+        tokenizer.record_usage(1_000_000, 100_000)
+        report = tokenizer.get_cost_report_string()
+        assert "Cost Report" in report
+        assert "gpt-4o" in report
+        assert "$" in report
+
+    def test_multi_provider_pricing(self):
+        """Verify pricing exists for key models."""
+        models_to_check = [
+            "gpt-4o", "gpt-4o-mini", "gpt-4.1",
+            "claude-3-5-sonnet", "claude-sonnet-4-20250514",
+            "gemini-2.0-flash", "gemini-2.5-pro",
+            "o1", "o3-mini", "o4-mini",
+            "llama3.1", "deepseek-r1",
+        ]
+        for model in models_to_check:
+            pricing = Tokenizer._resolve_pricing(model)
+            assert "input" in pricing
+            assert "output" in pricing
+
+    def test_reset_stats(self):
+        tokenizer = Tokenizer(model="gpt-4o")
+        tokenizer.record_usage(100, 50)
+        tokenizer.reset_stats()
+        stats = tokenizer.get_stats()
+        assert stats.total_input_tokens == 0
+        assert stats.total_output_tokens == 0
+        assert stats.num_requests == 0
+
+
+class TestCostTrackingClient:
+    """Tests for the CostTrackingClient proxy."""
+
+    def test_wraps_chat_and_records_usage(self):
+        """CostTrackingClient should record token usage from chat()."""
+        from distill_align.synthesis.models.base import LLMMessage, LLMResponse
+        from distill_align.synthesis.tokenizer import CostTrackingClient, Tokenizer
+
+        class FakeClient:
+            model = "gpt-4o"
+
+            async def chat(self, messages, **kwargs):
+                return LLMResponse(
+                    content="Hello!",
+                    model="gpt-4o",
+                    usage={"prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75},
+                    raw_response={
+                        "usage": {"prompt_tokens": 50, "completion_tokens": 25, "total_tokens": 75},
+                        "model": "gpt-4o",
+                        "choices": [{"message": {"content": "Hello!"}, "finish_reason": "stop"}],
+                    },
+                )
+
+            async def complete(self, prompt, **kwargs):
+                return LLMResponse(
+                    content="Hi",
+                    model="gpt-4o",
+                    usage={"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+                    raw_response={"usage": {"prompt_tokens": 10, "completion_tokens": 5}},
+                )
+
+        tokenizer = Tokenizer(model="gpt-4o")
+        client = CostTrackingClient(FakeClient(), tokenizer)
+
+        import asyncio
+
+        async def test():
+            await client.chat(messages=[LLMMessage(role="user", content="Hi")])
+            stats = tokenizer.get_stats()
+            assert stats.total_input_tokens == 50
+            assert stats.total_output_tokens == 25
+            assert stats.num_requests == 1
+
+        asyncio.run(test())
+
+    def test_wraps_generate_and_records_usage(self):
+        """CostTrackingClient.generate() should record usage."""
+        from distill_align.synthesis.models.base import LLMResponse
+        from distill_align.synthesis.tokenizer import CostTrackingClient, Tokenizer
+
+        class FakeClient:
+            model = "gpt-4o"
+
+            async def chat(self, messages, **kwargs):
+                return LLMResponse(
+                    content="Generated text",
+                    model="gpt-4o",
+                    usage={"prompt_tokens": 30, "completion_tokens": 15, "total_tokens": 45},
+                    raw_response={
+                        "usage": {"prompt_tokens": 30, "completion_tokens": 15, "total_tokens": 45},
+                        "model": "gpt-4o",
+                    },
+                )
+
+            async def complete(self, prompt, **kwargs):
+                return LLMResponse(content="", model="gpt-4o", usage={})
+
+        tokenizer = Tokenizer(model="gpt-4o")
+        client = CostTrackingClient(FakeClient(), tokenizer)
+
+        import asyncio
+
+        async def test():
+            text = await client.generate(system_prompt="Be helpful", user_prompt="Hi")
+            assert text == "Generated text"
+            stats = tokenizer.get_stats()
+            assert stats.total_input_tokens == 30
+            assert stats.total_output_tokens == 15
+            assert stats.num_requests == 1
+
+        asyncio.run(test())
+
+    def test_delegates_attributes(self):
+        """CostTrackingClient should forward unknown attributes."""
+        from distill_align.synthesis.tokenizer import CostTrackingClient, Tokenizer
+
+        class FakeClient:
+            model = "test-model"
+            custom_attr = "hello"
+
+        tokenizer = Tokenizer(model="gpt-4o")
+        client = CostTrackingClient(FakeClient(), tokenizer)
+        assert client.model == "test-model"
+        assert client.custom_attr == "hello"
+
+    def test_setattr_delegates(self):
+        """Setting attributes should go to the wrapped client."""
+        from distill_align.synthesis.tokenizer import CostTrackingClient, Tokenizer
+
+        class FakeClient:
+            pass
+
+        tokenizer = Tokenizer(model="gpt-4o")
+        client = CostTrackingClient(FakeClient(), tokenizer)
+        client.new_attr = "set"
+        assert client._wrapped_client.new_attr == "set"
+
+
+class TestPipelineCostStats:
+    """Tests for pipeline cost tracking integration."""
+
+    def test_pipeline_has_tokenizer(self):
+        """SynthesisPipeline should have a Tokenizer for cost tracking."""
+        from distill_align.core.schemas import SynthesisConfig
+        from distill_align.synthesis.pipeline import SynthesisPipeline
+
+        pipeline = SynthesisPipeline(use_cache=False)
+        assert pipeline._tokenizer is not None
+        assert pipeline._tokenizer.model == "gpt-4o"  # default model
+
+    def test_pipeline_exposes_cost_stats(self):
+        """Pipeline should expose get_cost_stats()."""
+        from distill_align.core.schemas import SynthesisConfig
+        from distill_align.synthesis.pipeline import SynthesisPipeline
+
+        pipeline = SynthesisPipeline(use_cache=False)
+        stats = pipeline.get_cost_stats()
+        assert stats.total_input_tokens == 0
+        assert stats.estimated_cost_usd == 0.0
+
+    def test_pipeline_cost_report(self):
+        """Pipeline should generate a human-readable cost report."""
+        from distill_align.core.schemas import SynthesisConfig
+        from distill_align.synthesis.pipeline import SynthesisPipeline
+
+        pipeline = SynthesisPipeline(use_cache=False)
+        report = pipeline.get_cost_report()
+        assert "Cost Report" in report
+        assert "gpt-4o" in report
+
+    def test_pipeline_reset_cost_stats(self):
+        """Pipeline should allow resetting cost stats."""
+        from distill_align.synthesis.pipeline import SynthesisPipeline
+
+        pipeline = SynthesisPipeline(use_cache=False)
+        pipeline._tokenizer.record_usage(100, 50)
+        assert pipeline.get_cost_stats().total_input_tokens == 100
+        pipeline.reset_cost_stats()
+        assert pipeline.get_cost_stats().total_input_tokens == 0
+
+
+# =============================================================================
+# Judge Integration Tests
+# =============================================================================
+
+
+class TestJudgeIntegration:
+    """Tests for LLM-as-judge integration in the synthesis pipeline."""
+
+    def test_judge_disabled_by_default(self):
+        """Judge should not run when enable_judge is False."""
+        from distill_align.core.schemas import SynthesisConfig
+
+        config = SynthesisConfig()
+        assert config.enable_judge is False
+        assert config.judge_model is None
+
+    def test_judge_config_enabled(self):
+        """Judge config can be enabled with optional model override."""
+        from distill_align.core.schemas import SynthesisConfig
+
+        config = SynthesisConfig(enable_judge=True, judge_model="gpt-4o-mini")
+        assert config.enable_judge is True
+        assert config.judge_model == "gpt-4o-mini"
+
+    def test_schema_has_judge_scores(self):
+        """ConversationSchema should accept judge_scores."""
+        from distill_align.core.schemas import ConversationSchema, SynthesizedTurn
+
+        conv = ConversationSchema(
+            id="test-judge",
+            source_chunk_id="src-1",
+            turns=[SynthesizedTurn(role="user", content="Hi"), SynthesizedTurn(role="assistant", content="Hello")],
+            judge_scores={"overall": 8.5, "coherence": 9.0, "explanation": "Good conversation"},
+        )
+        assert conv.judge_scores is not None
+        assert conv.judge_scores["overall"] == 8.5
+        assert conv.judge_scores["explanation"] == "Good conversation"
+
+    def test_judge_sets_confidence_score(self):
+        """Confidence score should be derived from judge overall score."""
+        from distill_align.core.schemas import ConversationSchema, SynthesizedTurn
+
+        conv = ConversationSchema(
+            id="test-confidence",
+            source_chunk_id="src-1",
+            turns=[SynthesizedTurn(role="user", content="Hi"), SynthesizedTurn(role="assistant", content="Hello")],
+            judge_scores={"overall": 9.2},
+            confidence_score=0.92,  # 9.2 / 10, set by pipeline
+        )
+        assert conv.confidence_score == 0.92
+
+    def test_pipeline_creates_judge_when_enabled(self):
+        """SynthesisPipeline should create a judge when config.enable_judge is True."""
+        from distill_align.core.schemas import SynthesisConfig
+        from distill_align.synthesis.pipeline import SynthesisPipeline
+
+        config = SynthesisConfig(enable_judge=True)
+        pipeline = SynthesisPipeline(config=config, use_cache=False)
+        assert pipeline._judge is None  # Lazily created
+        # The judge is created on first access via _get_judge()
+        import asyncio
+
+        async def test():
+            judge = await pipeline._get_judge()
+            assert judge is not None
+            assert judge.llm_client is not None
+
+        asyncio.run(test())
+        # Cleanup
+        asyncio.run(pipeline.close())

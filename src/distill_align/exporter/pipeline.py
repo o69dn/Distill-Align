@@ -1,9 +1,12 @@
 """
 Export pipeline orchestrator.
 
-Handles the full export workflow: validation, splitting, formatting, and Unsloth config.
+Handles the full export workflow: validation, splitting, formatting, streaming,
+and Unsloth config.
 """
 
+from collections.abc import Iterable
+from itertools import tee
 from pathlib import Path
 from typing import Any, cast
 
@@ -16,6 +19,9 @@ from .formatters.alpaca import AlpacaFormatter
 from .formatters.base import BaseFormatter
 from .formatters.chatml import ChatMLFormatter
 from .formatters.conversation import ConversationFormatter
+from .formatters.hf_messages import HFMessagesFormatter
+from .formatters.jsonl import JsonlFormatter
+from .formatters.parquet import ParquetFormatter
 from .formatters.sharegpt import ShareGPTFormatter
 from .splitter import DatasetSplitter
 from .unsloth_builder import UnslothConfigBuilder
@@ -27,6 +33,9 @@ FORMATTER_MAP: dict[str, type[BaseFormatter]] = {
     "alpaca": AlpacaFormatter,
     "chatml": ChatMLFormatter,
     "conversation": ConversationFormatter,
+    "hf_messages": HFMessagesFormatter,
+    "jsonl": JsonlFormatter,
+    "parquet": ParquetFormatter,
 }
 
 
@@ -184,6 +193,61 @@ class ExportPipeline:
                 output_files["dataset_card"] = card_path
             except Exception as e:
                 logger.warning(f"Failed to generate dataset card: {e}")
+
+        return output_files
+
+    def export_stream(
+        self,
+        conversations: Iterable[ConversationSchema],
+        formats: list[str] | None = None,
+        dataset_filename: str = "dataset",
+    ) -> dict[str, Path]:
+        """Export conversations in a streaming fashion.
+
+        Unlike :meth:`export`, this method processes conversations from an
+        iterable without materialising the full list in memory. This is
+        useful for large datasets or when conversations are produced by a
+        live synthesis pipeline.
+
+        Only formatters that support streaming (``jsonl``, ``parquet``,
+        ``hf_messages`` via JSONL mode) benefit from this. Other formatters
+        will buffer the entire iterable internally.
+
+        When multiple formats are requested, the iterable is fanned out using
+        :func:`itertools.tee`, so each formatter receives its own iterator.
+
+        Args:
+            conversations: Iterable of conversations (streaming source).
+            formats: List of format names (defaults to config).
+            dataset_filename: Base filename for datasets.
+
+        Returns:
+            Dictionary mapping format names to output file paths.
+        """
+        export_formats = cast("list[str]", self.config.formats if formats is None else formats)
+
+        # Fan out the iterable for each format
+        iterators = tee(conversations, len(export_formats))
+
+        output_files: dict[str, Path] = {}
+
+        for format_name, conv_iter in zip(export_formats, iterators, strict=False):
+            try:
+                formatter = self._get_formatter(format_name)
+                # Determine file extension based on formatter
+                if format_name == "parquet":
+                    ext = ".parquet"
+                elif format_name in ("jsonl", "hf_messages"):
+                    ext = ".jsonl"
+                else:
+                    ext = ".json"
+                filename = f"{dataset_filename}_{format_name}{ext}"
+                output_path = formatter.format_stream(conv_iter, filename)
+                output_files[format_name] = output_path
+                logger.info(f"Streamed export to {format_name}: {output_path}")
+            except Exception as e:
+                logger.error(f"Failed to stream export to {format_name}: {e}")
+                raise ExportError(f"Streaming export to {format_name} failed: {e}") from e
 
         return output_files
 

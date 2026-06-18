@@ -25,13 +25,18 @@ from ..core.schemas import (
     SynthesisConfig,
     SynthesizedTurn,
 )
+from .judge import ConversationJudge
+from .models.anthropic import AnthropicClient
+from .models.azure import AzureClient
 from .models.base import BaseLLMClient
+from .models.gemini import GeminiClient
 from .models.ollama import OllamaClient
 from .models.openai import OpenAIClient
 from .models.vllm import VLLMClient
 from .prompts.scaffold import SCAFFOLD_SYSTEM_PROMPT, render_scaffold_prompt
 from .prompts.socratic import SOCRATIC_SYSTEM_PROMPT, render_socratic_prompt
 from .pruner import ContentPruner
+from .tokenizer import CostEstimate, CostTrackingClient, Tokenizer
 from .worker import BatchWorker
 
 
@@ -43,6 +48,7 @@ class SynthesisPipeline:
         config: SynthesisConfig | None = None,
         cache_manager: CacheManager | None = None,
         checkpoint_manager: CheckpointManager | None = None,
+        use_cache: bool = True,
     ):
         """
         Initialize the synthesis pipeline.
@@ -51,35 +57,77 @@ class SynthesisPipeline:
             config: Optional synthesis configuration.
             cache_manager: Optional cache manager for persistent caching.
             checkpoint_manager: Optional checkpoint manager for resume support.
+            use_cache: Whether to enable caching. When False, no CacheManager
+                is used regardless of *cache_manager*.
         """
         self.config = config or SynthesisConfig()
         self._client: BaseLLMClient | None = None
         self._worker: BatchWorker | None = None
+        self._judge: ConversationJudge | None = None
         self._pruner = ContentPruner()
         self._cache = cache_manager
         self._checkpoint = checkpoint_manager
+        self._use_cache = use_cache
+        # Cost tracking
+        self._tokenizer = Tokenizer(model=self.config.model_name)
+
+    def _build_client(self, model_name: str | None = None) -> BaseLLMClient:
+        """Build an LLM client for the configured provider.
+
+        Args:
+            model_name: Optional model override. Defaults to config model_name.
+
+        Returns:
+            A new LLM client instance.
+
+        Raises:
+            SynthesisError: If the provider is unknown.
+        """
+        model = model_name or self.config.model_name
+        provider = self.config.llm_provider
+
+        if provider == "openai":
+            return OpenAIClient(
+                base_url=self.config.base_url or "https://api.openai.com/v1",
+                api_key=self.config.api_key,
+                model=model,
+            )
+        elif provider == "ollama":
+            return OllamaClient(
+                base_url=self.config.base_url or "http://localhost:11434",
+                model=model,
+            )
+        elif provider == "vllm":
+            return VLLMClient(
+                base_url=self.config.base_url or "http://localhost:8000/v1",
+                model=model,
+            )
+        elif provider == "anthropic":
+            return AnthropicClient(
+                base_url=self.config.base_url or "https://api.anthropic.com/v1",
+                api_key=self.config.api_key,
+                model=model,
+            )
+        elif provider == "gemini":
+            return GeminiClient(
+                base_url=self.config.base_url or "https://generativelanguage.googleapis.com/v1beta",
+                api_key=self.config.api_key,
+                model=model,
+            )
+        elif provider == "azure":
+            return AzureClient(
+                base_url=self.config.base_url or "https://api.openai.azure.com",
+                api_key=self.config.api_key,
+                model=model,
+            )
+        else:
+            raise SynthesisError(f"Unknown provider: {provider}")
 
     def _get_client(self) -> BaseLLMClient:
         """Get or create the LLM client."""
         if self._client is None:
-            if self.config.llm_provider == "openai":
-                self._client = OpenAIClient(
-                    base_url=self.config.base_url or "https://api.openai.com/v1",
-                    api_key=self.config.api_key,
-                    model=self.config.model_name,
-                )
-            elif self.config.llm_provider == "ollama":
-                self._client = OllamaClient(
-                    base_url=self.config.base_url or "http://localhost:11434",
-                    model=self.config.model_name,
-                )
-            elif self.config.llm_provider == "vllm":
-                self._client = VLLMClient(
-                    base_url=self.config.base_url or "http://localhost:8000/v1",
-                    model=self.config.model_name,
-                )
-            else:
-                raise SynthesisError(f"Unknown provider: {self.config.llm_provider}")
+            raw_client = self._build_client()
+            self._client = CostTrackingClient(raw_client, self._tokenizer)
         return self._client
 
     def _get_worker(self) -> BatchWorker:
@@ -93,8 +141,26 @@ class SynthesisPipeline:
                 retry_attempts=self.config.retry_attempts,
                 cache_manager=self._cache,
                 checkpoint_manager=self._checkpoint,
+                use_cache=self._use_cache,
             )
         return self._worker
+
+    async def _get_judge(self) -> ConversationJudge:
+        """Get or create the conversation judge.
+
+        The judge reuses the same LLM client, optionally with a different
+        model override (``judge_model``).
+        """
+        if self._judge is None:
+            client = self._get_client()
+            # If a separate judge model is configured, create a new client
+            # with that model (sharing the same provider).
+            if self.config.judge_model and self.config.judge_model != self.config.model_name:
+                judge_client = self._build_client(model_name=self.config.judge_model)
+            else:
+                judge_client = client
+            self._judge = ConversationJudge(llm_client=judge_client)
+        return self._judge
 
     async def synthesize_chunk(
         self,
@@ -152,6 +218,20 @@ class SynthesisPipeline:
         pruned = self._pruner.prune_conversation(conversation)
         if pruned is None:
             raise SynthesisError(f"Conversation failed quality check for chunk {chunk_id}")
+
+        # Step 4: LLM-as-judge evaluation (optional)
+        if self.config.enable_judge:
+            try:
+                judge = await self._get_judge()
+                scores = await judge.evaluate(pruned, source_content=chunk.content)
+                if "error" not in scores:
+                    pruned.judge_scores = scores
+                    # Extract overall score (0-10) and normalise to 0-1 for confidence
+                    overall = scores.get("overall")
+                    if isinstance(overall, int | float):
+                        pruned.confidence_score = max(0.0, min(1.0, overall / 10.0))
+            except Exception as e:
+                logger.warning(f"Judge evaluation failed for chunk {chunk_id}: {e}")
 
         return pruned
 
@@ -240,6 +320,7 @@ class SynthesisPipeline:
         progress_callback: Callable[[int, int], None] | None = None,
         job_id: str | None = None,
         resume: bool = False,
+        use_cache: bool | None = None,
     ) -> list[ConversationSchema]:
         """
         Synthesize a batch of chunks into conversations.
@@ -249,6 +330,9 @@ class SynthesisPipeline:
             progress_callback: Optional callback for progress updates.
             job_id: Optional job ID for checkpointing/resume.
             resume: Whether to resume an existing job.
+            use_cache: Whether to use caching for this batch. Defaults to the
+                pipeline-level *use_cache* setting. Note that if caching was
+                disabled at the pipeline level, this flag cannot re-enable it.
 
         Returns:
             List of ConversationSchema objects.
@@ -283,9 +367,11 @@ class SynthesisPipeline:
             return {"status": "success", "conversation": conversation.model_dump()}
 
         # Run batch
+        effective_use_cache = use_cache if use_cache is not None else self._use_cache
         results = await worker.run_batch(
             items=items,
             processor_fn=processor,
+            use_cache=effective_use_cache,
             job_id=job_id,
             progress_callback=progress_callback,
         )
@@ -316,3 +402,23 @@ class SynthesisPipeline:
             await self._worker.close()
         if self._client and hasattr(self._client, "close"):
             await self._client.close()
+
+    def get_cost_stats(self) -> CostEstimate:
+        """Get cumulative cost statistics for all synthesis runs.
+
+        Returns:
+            CostEstimate with token and cost totals.
+        """
+        return self._tokenizer.get_stats()
+
+    def get_cost_report(self) -> str:
+        """Get a human-readable cost report string.
+
+        Returns:
+            Multi-line cost summary.
+        """
+        return self._tokenizer.get_cost_report_string()
+
+    def reset_cost_stats(self) -> None:
+        """Reset all cost tracking statistics."""
+        self._tokenizer.reset_stats()

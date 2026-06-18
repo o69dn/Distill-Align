@@ -5,13 +5,12 @@ Uses a separate LLM call to score generated conversations on multiple criteria.
 """
 
 import json
-import re
-from typing import Any, cast
+from typing import Any
 
 from loguru import logger
 
 from ..core.schemas import ConversationSchema
-from .models.base import BaseLLMClient
+from .models.base import BaseLLMClient, LLMMessage
 
 JUDGE_PROMPT = """You are an expert evaluator of LLM training data. Evaluate the following conversation on these criteria:
 
@@ -68,20 +67,14 @@ class ConversationJudge:
         )
 
         try:
-            result_text = await self.llm_client.generate(
-                system_prompt="You are a quality evaluator.",
-                user_prompt=prompt,
-            )
+            # Use chat_structured for reliable JSON parsing via response_format
+            messages = [
+                LLMMessage(role="system", content="You are a quality evaluator."),
+                LLMMessage(role="user", content=prompt),
+            ]
+            result = await self.llm_client.chat_structured(messages)
+            return result
 
-            # Parse JSON from response
-            json_match = re.search(r"\{.*\}", result_text, re.DOTALL)
-            if json_match:
-                raw = json.loads(json_match.group())
-                scores: dict[str, Any] = cast("dict[str, Any]", raw)
-            else:
-                scores = {"error": "Could not parse judge response", "raw": result_text}
-
-            return scores
         except Exception as e:
             logger.error(f"Judge evaluation failed: {e}")
             return {"error": str(e)}

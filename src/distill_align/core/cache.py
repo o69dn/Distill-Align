@@ -2,6 +2,12 @@
 SQLite-backed cache manager for synthesis results.
 
 Provides persistent caching with statistics, pruning, and resume support.
+
+Thread-safety:
+    All SQLite operations use short-lived connections (per-call) and WAL mode,
+    making concurrent access safe. Stats counters (``_hits``, ``_misses``) are
+    not atomic — they are cosmetic only and may be slightly off under high
+    contention.
 """
 
 import hashlib
@@ -13,6 +19,8 @@ from typing import Any
 
 from loguru import logger
 from pydantic import BaseModel
+
+from .json_utils import safe_json_loads, safe_json_loads_value
 
 
 class CacheStats(BaseModel):
@@ -173,7 +181,7 @@ class CacheManager:
 
                 self._hits += 1
                 return {
-                    "value": json.loads(row["value"]),
+                    "value": safe_json_loads_value(row["value"]),
                     "model": row["model"],
                     "provider": row["provider"],
                     "tokens_used": row["tokens_used"],

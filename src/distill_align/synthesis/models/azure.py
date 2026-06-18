@@ -1,47 +1,69 @@
 """
-OpenAI-compatible LLM client.
+Azure OpenAI LLM client with Entra ID (Azure AD) authentication.
 
-Supports OpenAI API and compatible endpoints (vLLM, Ollama with OpenAI compatibility mode).
+Uses the Azure OpenAI service API with either API key or OAuth2 token
+(Entra ID / Azure AD) authentication.
 """
 
 from typing import Any
 
 import httpx
 
-from ...core.exceptions import LLMClientError, ModelNotFoundError, RateLimitError
+from ...core.exceptions import LLMClientError, RateLimitError
 from .base import BaseLLMClient, LLMMessage, LLMResponse
 
 
-class OpenAIClient(BaseLLMClient):
-    """Client for OpenAI-compatible APIs."""
+class AzureClient(BaseLLMClient):
+    """Client for Azure OpenAI service.
+
+    Supports two authentication modes:
+    1. **API key** — Pass ``api_key`` directly.
+    2. **Entra ID (Azure AD)** — Pass ``azure_ad_token`` or provide a
+       callable ``token_provider`` that returns a valid OAuth2 token.
+
+    The ``base_url`` should be the full Azure OpenAI endpoint, e.g.::
+
+        https://my-resource.openai.azure.com
+
+    The deployment (model) name is set via the ``model`` parameter.
+    """
 
     def __init__(
         self,
-        base_url: str = "https://api.openai.com/v1",
+        base_url: str = "https://api.openai.azure.com",
         api_key: str | None = None,
-        model: str = "gpt-4o",
+        model: str = "gpt-4o",  # Deployment name in Azure
         timeout: float = 120.0,
         max_retries: int = 3,
+        azure_ad_token: str | None = None,
+        api_version: str = "2024-10-01-preview",
     ):
         """
-        Initialize the OpenAI client.
-
         Args:
-            base_url: Base URL for the OpenAI API.
-            api_key: OpenAI API key.
-            model: Model name (e.g., "gpt-4o", "gpt-4-turbo").
+            base_url: Azure OpenAI endpoint URL (resource name).
+            api_key: Azure API key (Resource Management -> Keys and Endpoint).
+            model: Deployment name (not the base model name).
             timeout: Request timeout in seconds.
             max_retries: Maximum number of retries.
+            azure_ad_token: OAuth2 token for Entra ID auth (alternative to api_key).
+            api_version: Azure OpenAI API version.
         """
         super().__init__(base_url, api_key, model, timeout, max_retries)
+        self.azure_ad_token = azure_ad_token
+        self.api_version = api_version
         self._client: httpx.AsyncClient | None = None
 
     async def _get_client(self) -> httpx.AsyncClient:
         """Get or create the HTTP client."""
         if self._client is None:
-            headers = {}
+            headers: dict[str, str] = {
+                "Content-Type": "application/json",
+            }
             if self.api_key:
-                headers["Authorization"] = f"Bearer {self.api_key}"
+                headers["api-key"] = self.api_key
+            elif self.azure_ad_token:
+                headers["Authorization"] = f"Bearer {self.azure_ad_token}"
+
             self._client = httpx.AsyncClient(
                 base_url=self.base_url,
                 headers=headers,
@@ -63,29 +85,16 @@ class OpenAIClient(BaseLLMClient):
         response_format: dict[str, Any] | None = None,
         **kwargs,
     ) -> LLMResponse:
-        """
-        Send a chat completion request to OpenAI.
+        """Send a chat completion request to Azure OpenAI.
 
-        Args:
-            messages: List of conversation messages.
-            temperature: Sampling temperature.
-            max_tokens: Maximum tokens to generate.
-            response_format: Optional structured output format, e.g.
-                ``{"type": "json_object"}``. Requires model supporting
-                structured outputs (gpt-4o-mini, gpt-4o, etc.).
-            **kwargs: Additional parameters (e.g., top_p, frequency_penalty).
+        Azure uses the same API schema as OpenAI but with a different
+        endpoint format::
 
-        Returns:
-            LLMResponse object.
-
-        Raises:
-            LLMClientError: If the request fails.
+            POST /openai/deployments/{deployment}/chat/completions?api-version={version}
         """
         client = await self._get_client()
 
-        # Build request payload
         payload: dict[str, Any] = {
-            "model": self.model,
             "messages": [{"role": m.role, "content": m.content} for m in messages],
             "temperature": temperature,
         }
@@ -95,12 +104,16 @@ class OpenAIClient(BaseLLMClient):
             payload["response_format"] = response_format
         payload.update(kwargs)
 
+        endpoint = (
+            f"/openai/deployments/{self.model}/chat/completions"
+            f"?api-version={self.api_version}"
+        )
+
         try:
-            response = await client.post("/chat/completions", json=payload)
+            response = await client.post(endpoint, json=payload)
             response.raise_for_status()
             data = response.json()
 
-            # Parse response
             choice = data["choices"][0]
             usage = data.get("usage", {})
 
@@ -119,12 +132,11 @@ class OpenAIClient(BaseLLMClient):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded") from e
-            elif e.response.status_code == 404:
-                raise ModelNotFoundError(f"Model not found: {self.model}") from e
-            else:
-                raise LLMClientError(f"API error: {e.response.status_code} - {e.response.text}") from e
+            raise LLMClientError(
+                f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}"
+            ) from e
         except Exception as e:
-            raise LLMClientError(f"Request failed: {e}") from e
+            raise LLMClientError(f"Azure OpenAI request failed: {e}") from e
 
     async def complete(
         self,
@@ -133,24 +145,10 @@ class OpenAIClient(BaseLLMClient):
         max_tokens: int | None = None,
         **kwargs,
     ) -> LLMResponse:
-        """
-        Send a text completion request to OpenAI.
-
-        Args:
-            prompt: Text prompt.
-            temperature: Sampling temperature.
-            max_tokens: Maximum tokens to generate.
-
-        Returns:
-            LLMResponse object.
-
-        Raises:
-            LLMClientError: If the request fails.
-        """
+        """Send a text completion request to Azure OpenAI."""
         client = await self._get_client()
 
-        payload = {
-            "model": self.model,
+        payload: dict[str, Any] = {
             "prompt": prompt,
             "temperature": temperature,
         }
@@ -158,8 +156,13 @@ class OpenAIClient(BaseLLMClient):
             payload["max_tokens"] = max_tokens
         payload.update(kwargs)
 
+        endpoint = (
+            f"/openai/deployments/{self.model}/completions"
+            f"?api-version={self.api_version}"
+        )
+
         try:
-            response = await client.post("/completions", json=payload)
+            response = await client.post(endpoint, json=payload)
             response.raise_for_status()
             data = response.json()
 
@@ -181,9 +184,8 @@ class OpenAIClient(BaseLLMClient):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded") from e
-            elif e.response.status_code == 404:
-                raise ModelNotFoundError(f"Model not found: {self.model}") from e
-            else:
-                raise LLMClientError(f"API error: {e.response.status_code} - {e.response.text}") from e
+            raise LLMClientError(
+                f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}"
+            ) from e
         except Exception as e:
-            raise LLMClientError(f"Request failed: {e}") from e
+            raise LLMClientError(f"Azure OpenAI request failed: {e}") from e

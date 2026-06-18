@@ -245,6 +245,32 @@ class AutoIngestionPipeline:
             chunker = self.get_chunker(metadata.source_type)
             chunks = loader.to_chunks(chunker)
 
+            # Optional PII/secret scanning
+            if self.config.scan_pii:
+                from ..core.pii_filter import PIIFilter
+
+                pii_filter = PIIFilter(redact=self.config.redact_pii)
+                scanned_chunks: list[DataChunk] = []
+                has_findings = False
+                for chunk in chunks:
+                    result = pii_filter.scan_text(chunk.content)
+                    if result.total_findings > 0:
+                        has_findings = True
+                        scanned_chunks.append(
+                            DataChunk(
+                                content=result.redacted_text if self.config.redact_pii else chunk.content,
+                                metadata=chunk.metadata,
+                                id=chunk.id,
+                                tokens=chunk.tokens,
+                            )
+                        )
+                    else:
+                        scanned_chunks.append(chunk)
+
+                if has_findings:
+                    logger.warning(f"PII/secret items detected in {file_path.name}")
+                chunks = scanned_chunks
+
             logger.info(f"Created {len(chunks)} chunks from {file_path.name}")
             return chunks
 

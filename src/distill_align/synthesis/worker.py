@@ -61,6 +61,7 @@ class BatchWorker:
         checkpoint_manager: CheckpointManager | None = None,
         cache_dir: str = ".cache",
         cache_ttl_days: int = 30,
+        use_cache: bool = True,
     ):
         """
         Initialize the batch worker.
@@ -74,16 +75,20 @@ class BatchWorker:
             checkpoint_manager: Optional CheckpointManager instance.
             cache_dir: Directory for cache database.
             cache_ttl_days: Cache time-to-live in days.
+            use_cache: Whether to use caching. When False, no CacheManager is
+                created even if *cache_manager* is provided.
         """
         self.llm_client = llm_client
         self.semaphore = asyncio.Semaphore(max_concurrency)
         self.rate_limiter = RateLimiter(max_rpm)
         self.retry_attempts = retry_attempts
 
-        # Cache (SQLite-backed)
-        self.cache = cache_manager or CacheManager(
-            cache_dir=cache_dir,
-            ttl_days=cache_ttl_days,
+        # Cache (SQLite-backed) — only create if caching is enabled
+        self._use_cache = use_cache
+        self.cache = (
+            cache_manager
+            if use_cache and cache_manager is not None
+            else (CacheManager(cache_dir=cache_dir, ttl_days=cache_ttl_days) if use_cache else None)
         )
 
         # Checkpoint (optional)
@@ -121,7 +126,7 @@ class BatchWorker:
         item_id = item.get("id", "unknown")
 
         # Check cache first
-        if use_cache:
+        if use_cache and self.cache is not None:
             cache_key = CacheManager.make_key(
                 content=str(item),
                 model=getattr(self.llm_client, "model", ""),
@@ -146,7 +151,7 @@ class BatchWorker:
                 result = await self._process_with_retry(item, processor_fn)
 
                 # Cache successful result
-                if use_cache:
+                if use_cache and self.cache is not None:
                     self.cache.set(
                         key=cache_key,
                         value=result,
@@ -217,7 +222,8 @@ class BatchWorker:
         Args:
             items: List of items to process.
             processor_fn: Async function to process each item.
-            use_cache: Whether to use caching.
+            use_cache: Whether to use caching. Note: caching is only available
+                if the worker was created with ``use_cache=True``.
             job_id: Optional job ID for checkpointing.
             progress_callback: Optional callback for progress updates (current, total).
             checkpoint_interval: Save checkpoint every N items.
@@ -225,6 +231,9 @@ class BatchWorker:
         Returns:
             List of processing results.
         """
+        # Honour the worker-level cache setting: if caching was disabled at
+        # construction time, the per-call flag cannot re-enable it.
+        effective_use_cache = use_cache and self._use_cache
         self.stats["total"] = len(items)
         logger.info(f"Starting batch processing of {len(items)} items (concurrency: {self.semaphore._value})")
 
@@ -246,7 +255,7 @@ class BatchWorker:
                 self._process_with_progress(
                     item,
                     processor_fn,
-                    use_cache,
+                    effective_use_cache,
                     job_id,
                     i,
                     len(items),
@@ -269,9 +278,18 @@ class BatchWorker:
                         "item": items[i],
                     }
                 )
-            else:
-                assert isinstance(result, dict)
+            elif isinstance(result, dict):
                 processed_results.append(result)
+            else:
+                # Unexpected result type (shouldn't happen with return_exceptions=True)
+                processed_results.append(
+                    {
+                        "status": "failed",
+                        "error": f"Unexpected result type: {type(result).__name__}",
+                        "item": items[i],
+                    }
+                )
+                self.stats["failed"] += 1
 
         logger.info(
             f"Batch complete: {self.stats['completed']} succeeded, "
@@ -306,22 +324,33 @@ class BatchWorker:
 
     def get_stats(self) -> dict[str, Any]:
         """Get processing statistics."""
-        cache_stats = self.cache.stats()
+        cache_hit_rate = 0.0
+        cache_entries = 0
+        cache_size_mb = 0.0
+        if self.cache is not None:
+            cache_stats = self.cache.stats()
+            cache_hit_rate = cache_stats.hit_rate
+            cache_entries = cache_stats.total_entries
+            cache_size_mb = cache_stats.db_size_mb
         return {
             **self.stats,
             "success_rate": (self.stats["completed"] / self.stats["total"] * 100 if self.stats["total"] > 0 else 0),
-            "cache_hit_rate": cache_stats.hit_rate,
-            "cache_entries": cache_stats.total_entries,
-            "cache_size_mb": cache_stats.db_size_mb,
+            "cache_hit_rate": cache_hit_rate,
+            "cache_entries": cache_entries,
+            "cache_size_mb": cache_size_mb,
         }
 
     def clear_cache(self) -> None:
         """Clear the result cache."""
-        self.cache.clear()
-        logger.info("Cache cleared")
+        if self.cache is not None:
+            self.cache.clear()
+            logger.info("Cache cleared")
+        else:
+            logger.info("Cache is disabled — nothing to clear")
 
     async def close(self) -> None:
         """Close the worker and cleanup resources."""
         if hasattr(self.llm_client, "close"):
             await self.llm_client.close()
-        self.cache.close()
+        if self.cache is not None:
+            self.cache.close()
