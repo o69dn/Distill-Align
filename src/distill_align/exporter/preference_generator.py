@@ -155,13 +155,14 @@ class PreferenceGenerator:
             )
 
         # Cross-source pairing for singletons
-        singles = [
-            (self._get_score(conv), conv)
-            for conv in conversations
-            if len(groups.get(conv.source_chunk_id, [])) < 2
+        singles: list[tuple[float, ConversationSchema]] = [
+            (s, c)
+            for s, c in (
+                (self._get_score(conv), conv) for conv in conversations if len(groups.get(conv.source_chunk_id, [])) < 2
+            )
+            if s is not None
         ]
-        singles = [(s, c) for s, c in singles if s is not None]
-        singles.sort(key=lambda x: x[0] or 0.0, reverse=True)
+        singles.sort(key=lambda x: x[0], reverse=True)
 
         # Pair highest-scored singleton with lowest-scored singleton
         while len(singles) >= 2:
@@ -196,9 +197,7 @@ class PreferenceGenerator:
                 )
             )
 
-        logger.info(
-            f"Generated {len(pairs)} preference pairs from {len(conversations)} conversations"
-        )
+        logger.info(f"Generated {len(pairs)} preference pairs from {len(conversations)} conversations")
         if not pairs:
             logger.warning(
                 "No preference pairs generated. Ensure conversations have "

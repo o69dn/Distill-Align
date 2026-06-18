@@ -24,7 +24,7 @@ jobs:
           poetry config virtualenvs.create false
           poetry install --no-interaction --with benchmark
       - name: Run benchmarks
-        run: pytest tests/benchmarks/ --benchmark-only --benchmark-json output.json
+        run: pytest tests/benchmarks/ --benchmark-only --benchmark-json output.json --no-cov
       - name: Upload benchmark results
         uses: actions/upload-artifact@v4
         with:

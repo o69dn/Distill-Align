@@ -19,7 +19,6 @@ from typing import ClassVar
 
 from loguru import logger
 
-
 # =============================================================================
 # Data models
 # =============================================================================
@@ -90,9 +89,7 @@ class PIIScanner:
     )
 
     # US phone numbers (with optional country code)
-    PHONE_US: ClassVar[re.Pattern] = re.compile(
-        r"(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}"
-    )
+    PHONE_US: ClassVar[re.Pattern] = re.compile(r"(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}")
 
     # International phone numbers (non-US prefix)
     PHONE_INTL: ClassVar[re.Pattern] = re.compile(
@@ -106,11 +103,11 @@ class PIIScanner:
 
     # Credit card numbers (major providers — Luhn validation is best done programmatically)
     CREDIT_CARD: ClassVar[re.Pattern] = re.compile(
-        r"\b(?:4[0-9]{12}(?:[0-9]{3})?"          # Visa
-        r"|5[1-5][0-9]{14}"                        # MasterCard
-        r"|3[47][0-9]{13}"                         # AmEx
-        r"|6(?:011|5[0-9]{2})[0-9]{12}"            # Discover
-        r"|(?:2131|1800|35[0-9]{3})[0-9]{11})"     # JCB
+        r"\b(?:4[0-9]{12}(?:[0-9]{3})?"  # Visa
+        r"|5[1-5][0-9]{14}"  # MasterCard
+        r"|3[47][0-9]{13}"  # AmEx
+        r"|6(?:011|5[0-9]{2})[0-9]{12}"  # Discover
+        r"|(?:2131|1800|35[0-9]{3})[0-9]{11})"  # JCB
         r"\b"
     )
 
@@ -129,10 +126,7 @@ class PIIScanner:
 
     # Date of birth / birth date (various formats)
     DOB: ClassVar[re.Pattern] = re.compile(
-        r"\b(?:birth\s*(?:date|day)\s*[:#]?\s*"
-        r"|dob\s*[:#]?\s*)"
-        r"(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4})"
-        r"\b",
+        r"\b(?:birth\s*(?:date|day)\s*[:#]?\s*" r"|dob\s*[:#]?\s*)" r"(?:\d{1,2}[/-]\d{1,2}[/-]\d{2,4})" r"\b",
         re.IGNORECASE,
     )
 
@@ -141,9 +135,7 @@ class PIIScanner:
     # ------------------------------------------------------------------
 
     # AWS Access Key ID (starts with AKIA...)
-    AWS_ACCESS_KEY: ClassVar[re.Pattern] = re.compile(
-        r"(?:AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}\b"
-    )
+    AWS_ACCESS_KEY: ClassVar[re.Pattern] = re.compile(r"(?:AKIA|ASIA|ABIA|ACCA)[A-Z0-9]{16}\b")
 
     # AWS Secret Access Key
     AWS_SECRET_KEY: ClassVar[re.Pattern] = re.compile(
@@ -151,29 +143,19 @@ class PIIScanner:
     )
 
     # GitHub personal access tokens (ghp_, gho_, ghu_, ghs_, ghf_)
-    GITHUB_TOKEN: ClassVar[re.Pattern] = re.compile(
-        r"(?:ghp_|gho_|ghu_|ghs_|ghf_|github_pat_)[a-zA-Z0-9_]{36,}"
-    )
+    GITHUB_TOKEN: ClassVar[re.Pattern] = re.compile(r"(?:ghp_|gho_|ghu_|ghs_|ghf_|github_pat_)[a-zA-Z0-9_]{36,}")
 
     # GitLab tokens
-    GITLAB_TOKEN: ClassVar[re.Pattern] = re.compile(
-        r"\bglpat-[a-zA-Z0-9_\-]{20,}\b"
-    )
+    GITLAB_TOKEN: ClassVar[re.Pattern] = re.compile(r"\bglpat-[a-zA-Z0-9_\-]{20,}\b")
 
     # Hugging Face tokens
-    HF_TOKEN: ClassVar[re.Pattern] = re.compile(
-        r"\bhf_[a-zA-Z0-9]{32,}\b"
-    )
+    HF_TOKEN: ClassVar[re.Pattern] = re.compile(r"\bhf_[a-zA-Z0-9]{32,}\b")
 
     # Slack tokens (xoxb-, xoxp-, xoxa-, xoxe-)
-    SLACK_TOKEN: ClassVar[re.Pattern] = re.compile(
-        r"\bxox[abeprs]-[a-zA-Z0-9-]{24,}\b"
-    )
+    SLACK_TOKEN: ClassVar[re.Pattern] = re.compile(r"\bxox[abeprs]-[a-zA-Z0-9-]{24,}\b")
 
     # Stripe API keys (live/test)
-    STRIPE_KEY: ClassVar[re.Pattern] = re.compile(
-        r"\b(?:sk|pk)_(?:live|test)_[a-zA-Z0-9]{24,}\b"
-    )
+    STRIPE_KEY: ClassVar[re.Pattern] = re.compile(r"\b(?:sk|pk)_(?:live|test)_[a-zA-Z0-9]{24,}\b")
 
     # Generic API key / bearer token
     BEARER_TOKEN: ClassVar[re.Pattern] = re.compile(
@@ -181,19 +163,13 @@ class PIIScanner:
     )
 
     # JWT tokens (three base64url segments separated by dots)
-    JWT_TOKEN: ClassVar[re.Pattern] = re.compile(
-        r"\beyJ[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+\b"
-    )
+    JWT_TOKEN: ClassVar[re.Pattern] = re.compile(r"\beyJ[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+\b")
 
     # SSH private keys (embedded in text)
-    SSH_PRIVATE_KEY: ClassVar[re.Pattern] = re.compile(
-        r"-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|SSH)\s+PRIVATE\s+KEY-----"
-    )
+    SSH_PRIVATE_KEY: ClassVar[re.Pattern] = re.compile(r"-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|SSH)\s+PRIVATE\s+KEY-----")
 
     # Google API keys (AIza... or ya29...)
-    GOOGLE_API_KEY: ClassVar[re.Pattern] = re.compile(
-        r"\bAIza[0-9A-Za-z_\-]{35}\b"
-    )
+    GOOGLE_API_KEY: ClassVar[re.Pattern] = re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b")
 
     # Password / connection strings
     CONNECTION_STRING: ClassVar[re.Pattern] = re.compile(
@@ -331,10 +307,7 @@ class PIIFilter:
         findings.sort(key=lambda f: f.start)
 
         # Redact if requested
-        if self.redact:
-            redacted_text = self._redact_findings(text, findings)
-        else:
-            redacted_text = text
+        redacted_text = self._redact_findings(text, findings) if self.redact else text
 
         # Count by severity
         critical = sum(1 for f in findings if f.severity == "critical")
@@ -384,19 +357,12 @@ class PIIFilter:
         line_end = len(text) if line_end == -1 else line_end
         context = text[line_start:line_end]
 
-        for fp_pattern in self.FALSE_POSITIVE_PATTERNS:
-            if fp_pattern.search(context):
-                return True
-
-        return False
+        return any(fp_pattern.search(context) for fp_pattern in self.FALSE_POSITIVE_PATTERNS)
 
     @staticmethod
     def _overlaps(seen: set[tuple[int, int]], start: int, end: int) -> bool:
         """Check if (start, end) overlaps any range in *seen*."""
-        for s, e in seen:
-            if start < e and end > s:
-                return True
-        return False
+        return any(start < e and end > s for s, e in seen)
 
     def _redact_findings(self, text: str, findings: list[PIIFinding]) -> str:
         """Replace findings in *text* with redacted placeholders."""

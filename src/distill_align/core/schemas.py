@@ -172,7 +172,9 @@ class SynthesisConfig(BaseModel):
 class ExportConfig(BaseModel):
     """Configuration for the export pipeline."""
 
-    formats: list[Literal["sharegpt", "alpaca", "chatml", "conversation", "hf_messages", "jsonl", "parquet"]] = Field(default=["sharegpt"])
+    formats: list[Literal["sharegpt", "alpaca", "chatml", "conversation", "hf_messages", "jsonl", "parquet"]] = Field(
+        default=["sharegpt"]
+    )
     output_dir: str = "./output"
     generate_unsloth_script: bool = True
     unsloth_model: str = "unsloth/Meta-Llama-3.1-8B-Instruct"

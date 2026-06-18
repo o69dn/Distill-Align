@@ -66,10 +66,12 @@ class GeminiClient(BaseLLMClient):
             if msg.role == "system":
                 # Gemini uses system_instruction instead of system messages
                 continue
-            contents.append({
-                "role": msg.role,
-                "parts": [{"text": msg.content}],
-            })
+            contents.append(
+                {
+                    "role": msg.role,
+                    "parts": [{"text": msg.content}],
+                }
+            )
         return contents
 
     async def chat(
@@ -146,9 +148,7 @@ class GeminiClient(BaseLLMClient):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded") from e
-            raise LLMClientError(
-                f"Gemini API error: {e.response.status_code} - {e.response.text}"
-            ) from e
+            raise LLMClientError(f"Gemini API error: {e.response.status_code} - {e.response.text}") from e
         except Exception as e:
             raise LLMClientError(f"Gemini request failed: {e}") from e
 

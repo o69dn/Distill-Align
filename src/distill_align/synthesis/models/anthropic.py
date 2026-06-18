@@ -130,9 +130,7 @@ class AnthropicClient(BaseLLMClient):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded") from e
-            raise LLMClientError(
-                f"Anthropic API error: {e.response.status_code} - {e.response.text}"
-            ) from e
+            raise LLMClientError(f"Anthropic API error: {e.response.status_code} - {e.response.text}") from e
         except Exception as e:
             raise LLMClientError(f"Anthropic request failed: {e}") from e
 

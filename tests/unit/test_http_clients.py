@@ -17,12 +17,10 @@ from typing import Any
 
 import httpx
 import pytest
-from pytest_httpx import HTTPXMock
-
 from distill_align.core.exceptions import LLMClientError, ModelNotFoundError, RateLimitError
 from distill_align.synthesis.models.base import LLMMessage
 from distill_align.synthesis.models.openai import OpenAIClient
-
+from pytest_httpx import HTTPXMock
 
 # ------------------------------------------------------------------
 # Fixtures
@@ -190,6 +188,7 @@ async def test_chat_with_max_tokens(client: OpenAIClient, httpx_mock: HTTPXMock)
     request = httpx_mock.get_request()
     assert request is not None
     import json as _json
+
     body = _json.loads(request.content)
     assert body["max_tokens"] == 100
 
@@ -213,6 +212,7 @@ async def test_chat_custom_kwargs(client: OpenAIClient, httpx_mock: HTTPXMock) -
     request = httpx_mock.get_request()
     assert request is not None
     import json as _json
+
     body = _json.loads(request.content)
     assert body["top_p"] == 0.9
     assert body["frequency_penalty"] == 0.2
@@ -480,10 +480,12 @@ async def test_gemini_chat_success(httpx_mock: HTTPXMock) -> None:
         method="POST",
         url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=test-key",
         json={
-            "candidates": [{
-                "content": {"parts": [{"text": "Hello from Gemini!"}], "role": "model"},
-                "finishReason": "STOP",
-            }],
+            "candidates": [
+                {
+                    "content": {"parts": [{"text": "Hello from Gemini!"}], "role": "model"},
+                    "finishReason": "STOP",
+                }
+            ],
             "modelVersion": "gemini-2.0-flash",
             "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "totalTokenCount": 15},
         },
@@ -509,10 +511,12 @@ async def test_gemini_with_system_instruction(httpx_mock: HTTPXMock) -> None:
         method="POST",
         url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=test-key",
         json={
-            "candidates": [{
-                "content": {"parts": [{"text": "OK"}], "role": "model"},
-                "finishReason": "STOP",
-            }],
+            "candidates": [
+                {
+                    "content": {"parts": [{"text": "OK"}], "role": "model"},
+                    "finishReason": "STOP",
+                }
+            ],
             "modelVersion": "gemini-2.0-flash",
             "usageMetadata": {},
         },
@@ -542,10 +546,12 @@ async def test_gemini_structured_output(httpx_mock: HTTPXMock) -> None:
         method="POST",
         url="https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=test-key",
         json={
-            "candidates": [{
-                "content": {"parts": [{"text": '{"ok": true}'}], "role": "model"},
-                "finishReason": "STOP",
-            }],
+            "candidates": [
+                {
+                    "content": {"parts": [{"text": '{"ok": true}'}], "role": "model"},
+                    "finishReason": "STOP",
+                }
+            ],
             "modelVersion": "gemini-2.0-flash",
             "usageMetadata": {},
         },

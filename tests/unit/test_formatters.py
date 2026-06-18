@@ -507,6 +507,7 @@ class TestParquetFormatter:
 
         # Read back and verify
         import pyarrow.parquet as pq
+
         table = pq.read_table(output_path)
         assert table.num_rows == 2
         assert "id" in table.column_names
@@ -530,6 +531,7 @@ class TestParquetFormatter:
 
         assert output_path.exists()
         import pyarrow.parquet as pq
+
         table = pq.read_table(output_path)
         assert table.num_rows == 2
 
@@ -541,6 +543,7 @@ class TestParquetFormatter:
         output_path = formatter.format(parsed_conversations, "scored.parquet")
 
         import pyarrow.parquet as pq
+
         table = pq.read_table(output_path)
         assert table.num_rows == 2
         assert "confidence_score" in table.column_names
@@ -565,8 +568,8 @@ class TestParquetFormatter:
 
     def test_empty_list_raises(self, temp_output_dir):
         pytest.importorskip("pyarrow")
-        from distill_align.exporter.formatters.parquet import ParquetFormatter
         from distill_align.core.exceptions import FormatError
+        from distill_align.exporter.formatters.parquet import ParquetFormatter
 
         formatter = ParquetFormatter(temp_output_dir)
         with pytest.raises(FormatError, match="empty"):
@@ -574,8 +577,8 @@ class TestParquetFormatter:
 
     def test_empty_stream_raises(self, temp_output_dir):
         pytest.importorskip("pyarrow")
-        from distill_align.exporter.formatters.parquet import ParquetFormatter
         from distill_align.core.exceptions import FormatError
+        from distill_align.exporter.formatters.parquet import ParquetFormatter
 
         formatter = ParquetFormatter(temp_output_dir)
         with pytest.raises(FormatError, match="empty"):

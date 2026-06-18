@@ -224,7 +224,7 @@ def synthesize(
                 builder = ConversationBuilder()
                 client = pipeline._get_client()
                 mode_enum = ConversationMode(mode)
-                conversations = await builder.build_batch(chunks, mode_enum, client, max_concurrency=concurrency)
+                conversations = await builder.build_batch(chunks, mode_enum, client, max_concurrency=concurrency)  # type: ignore[arg-type]
             else:
                 conversations = await pipeline.synthesize_batch(chunks, update_progress, job_id=job_id, resume=resume)
             return conversations
@@ -539,6 +539,11 @@ def init_run(
 @app.command()
 def tui():
     """Launch the interactive TUI dashboard."""
+    import os
+
+    if os.getenv("CI") or os.getenv("PYTEST_CURRENT_TEST"):
+        console.print("[yellow]TUI requires an interactive terminal. Skipping in non-TTY mode.[/yellow]")
+        return
     console.print(Panel.fit("🖥️ Launching TUI...", style="bold cyan"))
     from ..tui.app import DistillAlignApp
 

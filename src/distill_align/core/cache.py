@@ -20,7 +20,7 @@ from typing import Any
 from loguru import logger
 from pydantic import BaseModel
 
-from .json_utils import safe_json_loads, safe_json_loads_value
+from .json_utils import safe_json_loads_value
 
 
 class CacheStats(BaseModel):

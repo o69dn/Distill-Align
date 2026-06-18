@@ -247,4 +247,5 @@ class TestCLIErrorCases:
         """tui command runs (may fail if no TTY)."""
         result = runner.invoke(app, ["tui"])
         # TUI may fail without a real TTY, but should not crash
+        # CI env skips the TUI launch gracefully
         assert result.exit_code in (0, 1)

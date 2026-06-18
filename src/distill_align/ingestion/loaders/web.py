@@ -22,25 +22,25 @@ from ...core.schemas import DataChunk, SourceMetadata
 
 # Blocked IP networks (private, loopback, link-local, multicast, reserved)
 _BLOCKED_NETWORKS = [
-    ipaddress.ip_network("0.0.0.0/8"),            # Current network
-    ipaddress.ip_network("10.0.0.0/8"),           # RFC 1918 private
-    ipaddress.ip_network("100.64.0.0/10"),        # Carrier-grade NAT
-    ipaddress.ip_network("127.0.0.0/8"),          # Loopback
-    ipaddress.ip_network("169.254.0.0/16"),       # Link-local (cloud metadata)
-    ipaddress.ip_network("172.16.0.0/12"),        # RFC 1918 private
-    ipaddress.ip_network("192.0.0.0/24"),         # IETF protocol assignments
-    ipaddress.ip_network("192.0.2.0/24"),         # Documentation / TEST-NET-1
-    ipaddress.ip_network("192.168.0.0/16"),       # RFC 1918 private
-    ipaddress.ip_network("198.18.0.0/15"),        # Benchmarking
-    ipaddress.ip_network("198.51.100.0/24"),      # Documentation / TEST-NET-2
-    ipaddress.ip_network("203.0.113.0/24"),       # Documentation / TEST-NET-3
-    ipaddress.ip_network("224.0.0.0/4"),          # Multicast
-    ipaddress.ip_network("240.0.0.0/4"),          # Reserved
-    ipaddress.ip_network("255.255.255.255/32"),   # Limited broadcast
-    ipaddress.ip_network("::1/128"),              # IPv6 loopback
-    ipaddress.ip_network("fc00::/7"),             # IPv6 unique-local
-    ipaddress.ip_network("fe80::/10"),            # IPv6 link-local
-    ipaddress.ip_network("ff00::/8"),             # IPv6 multicast
+    ipaddress.ip_network("0.0.0.0/8"),  # Current network
+    ipaddress.ip_network("10.0.0.0/8"),  # RFC 1918 private
+    ipaddress.ip_network("100.64.0.0/10"),  # Carrier-grade NAT
+    ipaddress.ip_network("127.0.0.0/8"),  # Loopback
+    ipaddress.ip_network("169.254.0.0/16"),  # Link-local (cloud metadata)
+    ipaddress.ip_network("172.16.0.0/12"),  # RFC 1918 private
+    ipaddress.ip_network("192.0.0.0/24"),  # IETF protocol assignments
+    ipaddress.ip_network("192.0.2.0/24"),  # Documentation / TEST-NET-1
+    ipaddress.ip_network("192.168.0.0/16"),  # RFC 1918 private
+    ipaddress.ip_network("198.18.0.0/15"),  # Benchmarking
+    ipaddress.ip_network("198.51.100.0/24"),  # Documentation / TEST-NET-2
+    ipaddress.ip_network("203.0.113.0/24"),  # Documentation / TEST-NET-3
+    ipaddress.ip_network("224.0.0.0/4"),  # Multicast
+    ipaddress.ip_network("240.0.0.0/4"),  # Reserved
+    ipaddress.ip_network("255.255.255.255/32"),  # Limited broadcast
+    ipaddress.ip_network("::1/128"),  # IPv6 loopback
+    ipaddress.ip_network("fc00::/7"),  # IPv6 unique-local
+    ipaddress.ip_network("fe80::/10"),  # IPv6 link-local
+    ipaddress.ip_network("ff00::/8"),  # IPv6 multicast
 ]
 
 MAX_REDIRECTS = 5
@@ -66,7 +66,7 @@ async def _resolve_and_check(hostname: str, port: int = 443) -> None:
         raise SSRFError(f"Cannot resolve hostname '{hostname}': {exc}") from exc
 
     checked: set[str] = set()
-    for family, _type, _proto, _canonname, sockaddr in addrinfo:
+    for _, _type, _proto, _canonname, sockaddr in addrinfo:
         ip_str = sockaddr[0]
         if ip_str in checked:
             continue
@@ -78,10 +78,7 @@ async def _resolve_and_check(hostname: str, port: int = 443) -> None:
 
         for net in _BLOCKED_NETWORKS:
             if ip in net:
-                raise SSRFError(
-                    f"URL resolves to blocked address {ip_str} "
-                    f"(network {net.with_prefixlen})"
-                )
+                raise SSRFError(f"URL resolves to blocked address {ip_str} " f"(network {net.with_prefixlen})")
 
 
 def _validate_url(url: str) -> str:
@@ -100,9 +97,7 @@ def _validate_url(url: str) -> str:
     parsed = urlparse(url)
 
     if parsed.scheme not in ("http", "https"):
-        raise SSRFError(
-            f"URL scheme '{parsed.scheme}' is not allowed (use http or https)"
-        )
+        raise SSRFError(f"URL scheme '{parsed.scheme}' is not allowed (use http or https)")
 
     if not parsed.netloc:
         raise SSRFError("URL must include a host (e.g. https://example.com)")
@@ -193,9 +188,7 @@ class WebLoader:
 
                     # Validate every redirect hop
                     if redirects_left <= 0:
-                        raise LoaderError(
-                            f"Too many redirects (max {MAX_REDIRECTS})"
-                        )
+                        raise LoaderError(f"Too many redirects (max {MAX_REDIRECTS})")
                     await _validate_and_resolve(redirect_target)
 
                     current_url = redirect_target
@@ -234,21 +227,13 @@ class WebLoader:
             content = "\n\n".join(el.get_text(strip=True) for el in elements)
         else:
             main = soup.find("main") or soup.find("article") or soup.find("body")
-            content = (
-                main.get_text(strip=True, separator="\n")
-                if main
-                else soup.get_text(strip=True, separator="\n")
-            )
+            content = main.get_text(strip=True, separator="\n") if main else soup.get_text(strip=True, separator="\n")
 
         # Truncate output content if requested
         if len(content) > max_length:
             content = content[:max_length] + "\n\n[Content truncated...]"
 
-        title = (
-            soup.title.string.strip()
-            if soup.title and soup.title.string
-            else url
-        )
+        title = soup.title.string.strip() if soup.title and soup.title.string else url
 
         metadata = SourceMetadata(
             source_type="text",

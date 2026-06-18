@@ -14,19 +14,17 @@ from __future__ import annotations
 
 import asyncio
 import time
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
 
 import pytest
-
 from distill_align.core.cache import CacheManager
-from distill_align.core.exceptions import LLMClientError, RateLimitError
+from distill_align.core.exceptions import RateLimitError
 from distill_align.synthesis.models.base import BaseLLMClient
 from distill_align.synthesis.worker import BatchWorker, RateLimiter
 
-
 # ------------------------------------------------------------------
-# RateLimiter tests
+# Test helpers
 # ------------------------------------------------------------------
 
 
@@ -65,9 +63,6 @@ async def test_rate_limiter_low_rpm() -> None:
 # ------------------------------------------------------------------
 # Mock helpers
 # ------------------------------------------------------------------
-
-
-from types import SimpleNamespace
 
 
 class MockLLMClient(BaseLLMClient):
@@ -156,11 +151,11 @@ async def test_worker_cache_disabled(tmp_path) -> None:
     )
 
     items = [{"id": "1", "data": "hello"}]
-    results = await worker.run_batch(items, _mock_processor)
+    await worker.run_batch(items, _mock_processor)
     first_count = client.call_count
 
     # Second run — cache should NOT be used
-    results2 = await worker.run_batch(items, _mock_processor)
+    await worker.run_batch(items, _mock_processor)
     assert client.call_count > first_count, "Cache should not have been used"
 
     await worker.close()
@@ -333,7 +328,7 @@ async def test_worker_stats() -> None:
     )
 
     items = [{"id": "1", "data": "fail"}, {"id": "2", "data": "ok"}]
-    results = await worker.run_batch(items, _mock_processor)
+    await worker.run_batch(items, _mock_processor)
 
     stats = worker.get_stats()
     assert stats["total"] == 2

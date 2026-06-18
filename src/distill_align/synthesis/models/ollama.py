@@ -4,6 +4,8 @@ Ollama LLM client.
 Supports local Ollama server for running models locally.
 """
 
+from typing import Any
+
 import httpx
 
 from ...core.exceptions import LLMClientError, ModelNotFoundError
@@ -52,6 +54,7 @@ class OllamaClient(BaseLLMClient):
         messages: list[LLMMessage],
         temperature: float = 0.7,
         max_tokens: int | None = None,
+        response_format: dict[str, Any] | None = None,
         **kwargs,
     ) -> LLMResponse:
         """

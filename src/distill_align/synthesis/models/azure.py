@@ -104,10 +104,7 @@ class AzureClient(BaseLLMClient):
             payload["response_format"] = response_format
         payload.update(kwargs)
 
-        endpoint = (
-            f"/openai/deployments/{self.model}/chat/completions"
-            f"?api-version={self.api_version}"
-        )
+        endpoint = f"/openai/deployments/{self.model}/chat/completions" f"?api-version={self.api_version}"
 
         try:
             response = await client.post(endpoint, json=payload)
@@ -132,9 +129,7 @@ class AzureClient(BaseLLMClient):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded") from e
-            raise LLMClientError(
-                f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}"
-            ) from e
+            raise LLMClientError(f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}") from e
         except Exception as e:
             raise LLMClientError(f"Azure OpenAI request failed: {e}") from e
 
@@ -156,10 +151,7 @@ class AzureClient(BaseLLMClient):
             payload["max_tokens"] = max_tokens
         payload.update(kwargs)
 
-        endpoint = (
-            f"/openai/deployments/{self.model}/completions"
-            f"?api-version={self.api_version}"
-        )
+        endpoint = f"/openai/deployments/{self.model}/completions" f"?api-version={self.api_version}"
 
         try:
             response = await client.post(endpoint, json=payload)
@@ -184,8 +176,6 @@ class AzureClient(BaseLLMClient):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded") from e
-            raise LLMClientError(
-                f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}"
-            ) from e
+            raise LLMClientError(f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}") from e
         except Exception as e:
             raise LLMClientError(f"Azure OpenAI request failed: {e}") from e

@@ -122,11 +122,10 @@ class BaseLLMClient(ABC):
             **kwargs,
         )
         try:
-            return json.loads(response.content)
+            return json.loads(response.content)  # type: ignore[no-any-return]
         except json.JSONDecodeError as e:
             raise LLMClientError(
-                f"Failed to parse structured response as JSON: {e}. "
-                f"Raw content: {response.content[:200]}"
+                f"Failed to parse structured response as JSON: {e}. " f"Raw content: {response.content[:200]}"
             ) from e
 
     @abstractmethod
@@ -181,7 +180,10 @@ class BaseLLMClient(ABC):
             LLMMessage(role="user", content=user_prompt),
         ]
         response = await self.chat(
-            messages, temperature=temperature, max_tokens=max_tokens,
-            response_format=response_format, **kwargs,
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+            **kwargs,
         )
         return response.content

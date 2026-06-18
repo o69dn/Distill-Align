@@ -54,10 +54,7 @@ class JsonlFormatter(BaseFormatter):
     def _conversation_to_dict(self, conv: ConversationSchema) -> dict[str, Any]:
         """Convert a single conversation to a JSON-serialisable dict."""
         record: dict[str, Any] = {
-            "messages": [
-                {"role": t.role, "content": t.content}
-                for t in conv.turns
-            ],
+            "messages": [{"role": t.role, "content": t.content} for t in conv.turns],
         }
 
         if self.flatten:

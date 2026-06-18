@@ -45,10 +45,7 @@ _VALID_ROLES = {"system", "user", "assistant", "tool"}
 
 def _conversation_to_struct(conv: ConversationSchema) -> dict[str, Any]:
     """Convert a ConversationSchema to a flat dict suitable for PyArrow."""
-    messages = [
-        {"role": t.role, "content": t.content}
-        for t in conv.turns
-    ]
+    messages = [{"role": t.role, "content": t.content} for t in conv.turns]
     row: dict[str, Any] = {
         "id": conv.id,
         "source_chunk_id": conv.source_chunk_id,
@@ -75,10 +72,12 @@ def _build_schema(
         pa.field(
             "messages",
             pa.list_(
-                pa.struct([
-                    pa.field("role", pa.string()),
-                    pa.field("content", pa.string()),
-                ]),
+                pa.struct(
+                    [
+                        pa.field("role", pa.string()),
+                        pa.field("content", pa.string()),
+                    ]
+                ),
             ),
         ),
     ]
@@ -126,8 +125,7 @@ class ParquetFormatter(BaseFormatter):
         super().__init__(output_dir)
         if not _HAS_PYARROW:
             raise FormatError(
-                "pyarrow is required for Parquet export. "
-                "Install it with: pip install distill-align[parquet]"
+                "pyarrow is required for Parquet export. " "Install it with: pip install distill-align[parquet]"
             )
 
     def format(
@@ -164,6 +162,7 @@ class ParquetFormatter(BaseFormatter):
             for row in rows:
                 if "judge_scores" in row and isinstance(row["judge_scores"], dict):
                     import json
+
                     row["judge_scores"] = json.dumps(row["judge_scores"])
 
             table = pa.Table.from_pylist(rows, schema=schema)
@@ -215,6 +214,7 @@ class ParquetFormatter(BaseFormatter):
                 row = _conversation_to_struct(conv)
                 if "judge_scores" in row and isinstance(row["judge_scores"], dict):
                     import json
+
                     row["judge_scores"] = json.dumps(row["judge_scores"])
 
                 # Infer schema from first row
@@ -235,10 +235,7 @@ class ParquetFormatter(BaseFormatter):
                 raise FormatError("Cannot export empty conversation stream to Parquet")
 
             file_size = output_path.stat().st_size if output_path.exists() else 0
-            logger.info(
-                f"Streamed {count} conversations to Parquet: "
-                f"{output_path} ({file_size / 1024:.1f} KB)"
-            )
+            logger.info(f"Streamed {count} conversations to Parquet: " f"{output_path} ({file_size / 1024:.1f} KB)")
             return output_path
 
         except FormatError:

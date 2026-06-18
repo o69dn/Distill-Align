@@ -22,7 +22,6 @@ from ...core.exceptions import FormatError
 from ...core.schemas import ConversationSchema
 from .base import BaseFormatter
 
-
 VALID_ROLES = {"system", "user", "assistant", "tool"}
 
 
@@ -80,10 +79,7 @@ class HFMessagesFormatter(BaseFormatter):
         try:
             records: list[dict[str, Any]] = []
             for conv in conversations:
-                messages = [
-                    {"role": t.role, "content": t.content}
-                    for t in conv.turns
-                ]
+                messages = [{"role": t.role, "content": t.content} for t in conv.turns]
                 records.append({"messages": messages})
 
             with open(output_path, "w", encoding="utf-8") as f:

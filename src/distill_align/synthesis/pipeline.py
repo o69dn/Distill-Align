@@ -61,7 +61,7 @@ class SynthesisPipeline:
                 is used regardless of *cache_manager*.
         """
         self.config = config or SynthesisConfig()
-        self._client: BaseLLMClient | None = None
+        self._client: BaseLLMClient | CostTrackingClient | None = None
         self._worker: BatchWorker | None = None
         self._judge: ConversationJudge | None = None
         self._pruner = ContentPruner()
@@ -123,7 +123,7 @@ class SynthesisPipeline:
         else:
             raise SynthesisError(f"Unknown provider: {provider}")
 
-    def _get_client(self) -> BaseLLMClient:
+    def _get_client(self) -> BaseLLMClient | CostTrackingClient:
         """Get or create the LLM client."""
         if self._client is None:
             raw_client = self._build_client()
@@ -135,7 +135,7 @@ class SynthesisPipeline:
         if self._worker is None:
             client = self._get_client()
             self._worker = BatchWorker(
-                llm_client=client,
+                llm_client=client,  # type: ignore[arg-type]
                 max_concurrency=self.config.max_concurrency,
                 max_rpm=self.config.max_rpm,
                 retry_attempts=self.config.retry_attempts,
@@ -158,8 +158,8 @@ class SynthesisPipeline:
             if self.config.judge_model and self.config.judge_model != self.config.model_name:
                 judge_client = self._build_client(model_name=self.config.judge_model)
             else:
-                judge_client = client
-            self._judge = ConversationJudge(llm_client=judge_client)
+                judge_client = client  # type: ignore[assignment]
+            self._judge = ConversationJudge(llm_client=judge_client)  # type: ignore[arg-type]
         return self._judge
 
     async def synthesize_chunk(

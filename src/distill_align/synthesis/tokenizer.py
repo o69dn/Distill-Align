@@ -420,10 +420,13 @@ class CostTrackingClient:
             LLMMessage(role="user", content=user_prompt),
         ]
         response = await self.chat(
-            messages, temperature=temperature, max_tokens=max_tokens,
-            response_format=response_format, **kwargs,
+            messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format=response_format,
+            **kwargs,
         )
-        return response.content
+        return response.content  # type: ignore[no-any-return]
 
     def __getattr__(self, name: str) -> Any:
         """Forward other attribute access to the wrapped client."""

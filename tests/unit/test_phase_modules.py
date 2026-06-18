@@ -381,11 +381,18 @@ class TestTokenizer:
     def test_multi_provider_pricing(self):
         """Verify pricing exists for key models."""
         models_to_check = [
-            "gpt-4o", "gpt-4o-mini", "gpt-4.1",
-            "claude-3-5-sonnet", "claude-sonnet-4-20250514",
-            "gemini-2.0-flash", "gemini-2.5-pro",
-            "o1", "o3-mini", "o4-mini",
-            "llama3.1", "deepseek-r1",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "gpt-4.1",
+            "claude-3-5-sonnet",
+            "claude-sonnet-4-20250514",
+            "gemini-2.0-flash",
+            "gemini-2.5-pro",
+            "o1",
+            "o3-mini",
+            "o4-mini",
+            "llama3.1",
+            "deepseek-r1",
         ]
         for model in models_to_check:
             pricing = Tokenizer._resolve_pricing(model)
@@ -515,7 +522,6 @@ class TestPipelineCostStats:
 
     def test_pipeline_has_tokenizer(self):
         """SynthesisPipeline should have a Tokenizer for cost tracking."""
-        from distill_align.core.schemas import SynthesisConfig
         from distill_align.synthesis.pipeline import SynthesisPipeline
 
         pipeline = SynthesisPipeline(use_cache=False)
@@ -524,7 +530,6 @@ class TestPipelineCostStats:
 
     def test_pipeline_exposes_cost_stats(self):
         """Pipeline should expose get_cost_stats()."""
-        from distill_align.core.schemas import SynthesisConfig
         from distill_align.synthesis.pipeline import SynthesisPipeline
 
         pipeline = SynthesisPipeline(use_cache=False)
@@ -534,7 +539,6 @@ class TestPipelineCostStats:
 
     def test_pipeline_cost_report(self):
         """Pipeline should generate a human-readable cost report."""
-        from distill_align.core.schemas import SynthesisConfig
         from distill_align.synthesis.pipeline import SynthesisPipeline
 
         pipeline = SynthesisPipeline(use_cache=False)

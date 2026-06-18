@@ -5,7 +5,6 @@ Protects against memory exhaustion from arbitrarily large JSON inputs.
 """
 
 import json
-import os
 from pathlib import Path
 from typing import Any
 
@@ -22,8 +21,7 @@ def _check_size(size: int, max_bytes: int = MAX_JSON_BYTES, label: str = "input"
     """Raise ``LoaderError`` if *size* exceeds *max_bytes*."""
     if size > max_bytes:
         raise LoaderError(
-            f"JSON {label} too large: {size / (1024*1024):.1f} MB "
-            f"(max {max_bytes / (1024*1024):.0f} MB)"
+            f"JSON {label} too large: {size / (1024*1024):.1f} MB " f"(max {max_bytes / (1024*1024):.0f} MB)"
         )
 
 

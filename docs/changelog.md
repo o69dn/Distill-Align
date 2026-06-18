@@ -1,6 +1,6 @@
 ﻿# Changelog
 
-See [CHANGELOG.md](../CHANGELOG.md) for the full changelog.
+See [CHANGELOG.md](https://github.com/o69dn/Distill-Align/blob/main/CHANGELOG.md) for the full changelog.
 
 ## [0.1.1] - 2024-01-15
 ### Fixed
