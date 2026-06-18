@@ -1,18 +1,36 @@
-﻿site_name: Distill-Align
+site_name: Distill-Align
 site_description: "The Structured Reasoning Extraction Factory — Generate high-quality fine-tuning datasets from raw domain data"
 repo_url: https://github.com/o69dn/Distill-Align
+repo_name: o69dn/Distill-Align
+site_url: https://o69dn.github.io/Distill-Align/
+
 theme:
   name: material
   features:
     - navigation.tabs
     - navigation.sections
     - navigation.expand
+    - navigation.top
     - content.code.copy
     - content.code.annotate
+    - search.highlight
+    - search.suggest
   palette:
     - scheme: default
       primary: indigo
       accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+  icon:
+    repo: fontawesome/brands/github
+
 nav:
   - Home: index.md
   - Getting Started: getting-started.md
@@ -20,25 +38,36 @@ nav:
   - CLI Reference: cli-reference.md
   - API Reference: api/index.md
   - Pipelines:
-    - Ingestion: pipelines/ingestion.md
-    - Synthesis: pipelines/synthesis.md
-    - Export: pipelines/export.md
+      - Ingestion: pipelines/ingestion.md
+      - Synthesis: pipelines/synthesis.md
+      - Export: pipelines/export.md
   - Guides:
-    - Best Practices: guides/best-practices.md
-    - Contributing: guides/contributing.md
-    - Troubleshooting: guides/troubleshooting.md
+      - Best Practices: guides/best-practices.md
+      - Contributing: guides/contributing.md
+      - Troubleshooting: guides/troubleshooting.md
   - Changelog: changelog.md
+
 plugins:
   - search
+
 markdown_extensions:
   - admonition
-  - pymdownx.highlight
+  - pymdownx.highlight:
+      anchor_linenums: true
   - pymdownx.superfences
-  - pymdownx.tabbed
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.details
+  - attr_list
+  - md_in_html
   - toc:
       permalink: true
+
 extra:
   social:
     - icon: fontawesome/brands/github
       link: https://github.com/o69dn/Distill-Align
+    - icon: fontawesome/brands/python
+      link: https://pypi.org/project/distill-align/
+    - icon: fontawesome/solid/globe
+      link: https://omar.com.ly/

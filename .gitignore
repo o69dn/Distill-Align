@@ -116,6 +116,9 @@ debug_*.py
 _test*.txt
 _output.txt
 _pytest.txt
+debug.log
+nul
+tempsmoke_test_venv/
 
 # Ruff
 .ruff_cache/

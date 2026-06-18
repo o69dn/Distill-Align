@@ -1,51 +1,116 @@
-# Distill-Align Documentation
+# Distill-Align
 
-Welcome to the Distill-Align documentation!
+**The Structured Reasoning Extraction Factory**
 
-## Table of Contents
+Generate high-quality fine-tuning datasets from raw domain data using frontier reasoning models as teachers.
 
-- [Getting Started](getting-started.md) — Installation and quick start
-- [Configuration](configuration.md) — Config file and environment variables
-- [CLI Reference](cli-reference.md) — All CLI commands and options
+<div class="grid cards" markdown>
 
-## Overview
+- :material-download: **Install** — `pip install distill-align`
+- :material-github: **Source** — [github.com/o69dn/Distill-Align](https://github.com/o69dn/Distill-Align)
+- :material-tag: **Version** — 0.1.1
+- :material-license: **License** — MIT
 
-Distill-Align is a CLI/Python framework that automates the generation of high-quality, fine-tuning datasets from raw domain data (PDFs, Markdown, Codebases). It uses frontier reasoning models as teachers to transform raw content into structured instruction-following formats optimized for Unsloth Studio fine-tuning.
+</div>
 
-## Core Components
+---
 
-### Ingestion Module
+## What It Does
 
-Supports multiple file formats with semantic-aware chunking:
-- **Markdown/PDF/Code** — Smart chunking by headers, definitions
-- **DOCX/HTML** — Office documents and web pages
-- **Jupyter Notebooks** — Code + markdown + outputs
-- **JSON/CSV** — Structured data
+Distill-Align transforms raw content (documents, code, PDFs, web pages) into structured conversation datasets optimized for fine-tuning LLMs. It captures the reasoning traces of frontier models and refines them into clean, multi-turn Q&A formats.
 
-### Synthesis Module
+```
+Raw Files  ──▶  Ingestion  ──▶  Synthesis  ──▶  Export
+(PDF, MD,       (chunking)     (LLM teacher)   (ShareGPT,
+ Code, HTML)                                   Alpaca, ...)
+```
 
-Generates structured conversations using:
-- **Socratic Transformer** — Conversational multi-turn Q&A
-- **Scaffold Action** — Strips filler, extracts clean output
-- **Multiple modes** — teach, debug, review, qa, explain
-- **External prompts** — Customizable `.j2` templates
-- **Caching & checkpoints** — Resume from failures
+## Quick Example
 
-### Export Module
+```bash
+# 1. Install
+pip install distill-align
 
-Outputs to multiple formats:
-- **ShareGPT** — Standard multi-turn format
-- **Alpaca** — Instruction-following format
-- **ChatML** — Qwen/OpenHermes compatible
-- **Conversation** — Generic format
-- **Auto-splits** — Train/val/test with stratification
-- **Dataset cards** — HuggingFace-style README
+# 2. Set API key
+export OPENAI_API_KEY=sk-...
 
-### CLI & TUI
+# 3. Ingest your data
+distill-align ingest --source ./docs --output chunks.json
 
-Rich command-line interface with:
-- **Subcommands** — ingest, synthesize, export, validate, jobs, config
-- **Live progress** — Rich tables and progress bars
-- **Cost estimation** — Token counting for OpenAI models
-- **Job management** — List, resume, delete synthesis jobs
-- **TUI dashboard** — Real-time monitoring with Textual
+# 4. Generate conversations
+distill-align synthesize --input chunks.json --provider openai --model gpt-4o
+
+# 5. Export for training
+distill-align export --input conversations.json --format sharegpt --split
+```
+
+## Core Features
+
+| Feature | Description |
+|---------|-------------|
+| **9 File Loaders** | Markdown, PDF, DOCX, HTML, Jupyter, JSON, CSV, Code (20+ languages), Text |
+| **6 LLM Providers** | OpenAI, Anthropic, Gemini, Azure, Ollama, vLLM |
+| **Socratic Transformer** | Converts raw content into guided multi-turn Q&A |
+| **Scaffold Action** | Strips filler, extracts clean structured output |
+| **LLM-as-Judge** | Automated quality scoring on 5 criteria |
+| **7 Export Formats** | ShareGPT, Alpaca, ChatML, HuggingFace, JSONL, Parquet, DPO Pairs |
+| **Job Checkpoints** | Resume failed synthesis jobs from last checkpoint |
+| **Cost Tracking** | Estimate costs across all providers |
+| **TUI Dashboard** | Real-time interactive monitoring |
+
+## Documentation
+
+<div class="grid cards" markdown>
+
+-   :material-rocket-launch: **[Getting Started](getting-started.md)**
+
+    ---
+
+    Installation, quick start, and first pipeline run.
+
+-   :material-cog: **[Configuration](configuration.md)**
+
+    ---
+
+    Config file, environment variables, and advanced options.
+
+-   :material-console: **[CLI Reference](cli-reference.md)**
+
+    ---
+
+    All commands, flags, and examples.
+
+-   :material-pipe: **Pipelines**
+
+    ---
+
+    [Ingestion](pipelines/ingestion.md) · [Synthesis](pipelines/synthesis.md) · [Export](pipelines/export.md)
+
+-   :material-book-open-variant: **Guides**
+
+    ---
+
+    [Best Practices](guides/best-practices.md) · [Contributing](guides/contributing.md) · [Troubleshooting](guides/troubleshooting.md)
+
+-   :material-history: **[Changelog](changelog.md)**
+
+    ---
+
+    Release history and changes.
+
+</div>
+
+## Supported Providers
+
+| Provider | API Key | Structured Output | Local |
+|----------|---------|-------------------|-------|
+| OpenAI | `OPENAI_API_KEY` | ✓ | — |
+| Anthropic | `ANTHROPIC_API_KEY` | ✓ (JSON mode) | — |
+| Google Gemini | `GEMINI_API_KEY` | ✓ (MIME type) | — |
+| Azure OpenAI | `AZURE_OPENAI_API_KEY` | ✓ | — |
+| Ollama | None | — | ✓ |
+| vLLM | None (or API key) | ✓ (OpenAI-compatible) | ✓ |
+
+## License
+
+MIT License — see [LICENSE](https://github.com/o69dn/Distill-Align/blob/main/LICENSE) for details.
