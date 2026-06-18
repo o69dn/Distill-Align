@@ -152,6 +152,7 @@ def synthesize(
     mode: str = typer.Option("default", "--mode", help="Conversation mode: default, teach, debug, review, qa, explain"),
     judge: bool = typer.Option(False, "--judge", flag_value=True, help="Enable LLM-as-judge evaluation"),
     judge_model: str | None = typer.Option(None, "--judge-model", help="Model for judge (defaults to --model)"),
+    max_tokens: int | None = typer.Option(None, "--max-tokens", help="Max tokens to generate per LLM call (prevents server cutoff)"),
 ):
     """Synthesize chunks into structured conversations."""
     from ..core.cache import CacheManager
@@ -198,6 +199,7 @@ def synthesize(
         max_rpm=rpm,
         enable_judge=judge,
         judge_model=judge_model,
+        max_tokens=max_tokens,
     )
     pipeline = SynthesisPipeline(
         config=config,

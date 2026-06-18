@@ -46,12 +46,14 @@ class ConversationJudge:
         self,
         conversation: ConversationSchema,
         source_content: str | None = None,
+        max_tokens: int | None = None,
     ) -> dict[str, Any]:
         """Evaluate a single conversation.
 
         Args:
             conversation: The conversation to evaluate.
             source_content: Optional source content for context.
+            max_tokens: Optional max tokens for the evaluation call.
 
         Returns:
             Dictionary with evaluation scores.
@@ -72,7 +74,7 @@ class ConversationJudge:
                 LLMMessage(role="system", content="You are a quality evaluator."),
                 LLMMessage(role="user", content=prompt),
             ]
-            result = await self.llm_client.chat_structured(messages)
+            result = await self.llm_client.chat_structured(messages, max_tokens=max_tokens)
             return result
 
         except Exception as e:

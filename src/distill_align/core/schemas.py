@@ -163,6 +163,7 @@ class SynthesisConfig(BaseModel):
     max_rpm: int = Field(default=60, ge=1)
     retry_attempts: int = Field(default=5, ge=1)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
+    max_tokens: int | None = None  # Maximum tokens to generate per LLM call (None = server default)
     socratic_enabled: bool = True
     scaffold_enabled: bool = True
     enable_judge: bool = False  # LLM-as-judge evaluation of generated conversations

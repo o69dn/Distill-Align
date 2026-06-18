@@ -223,7 +223,7 @@ class SynthesisPipeline:
         if self.config.enable_judge:
             try:
                 judge = await self._get_judge()
-                scores = await judge.evaluate(pruned, source_content=chunk.content)
+                scores = await judge.evaluate(pruned, source_content=chunk.content, max_tokens=self.config.max_tokens)
                 if "error" not in scores:
                     pruned.judge_scores = scores
                     # Extract overall score (0-10) and normalise to 0-1 for confidence
@@ -249,6 +249,7 @@ class SynthesisPipeline:
                 system_prompt=SOCRATIC_SYSTEM_PROMPT,
                 user_prompt=user_prompt,
                 temperature=self.config.temperature,
+                max_tokens=self.config.max_tokens,
             )
 
             parsed = self._pruner.extract_json_from_response(response)
@@ -289,6 +290,7 @@ class SynthesisPipeline:
                         system_prompt=SCAFFOLD_SYSTEM_PROMPT,
                         user_prompt=user_prompt,
                         temperature=0.3,
+                        max_tokens=self.config.max_tokens,
                     )
                     parsed = self._pruner.extract_json_from_response(response)
                     if parsed and "extracted_content" in parsed:
