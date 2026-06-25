@@ -116,6 +116,9 @@ class DatasetSplitter:
         rng.shuffle(indices)
 
         n = len(indices)
+        if n == 1:
+            return DatasetSplit(train=[conversations[indices[0]]], val=[], test=[])
+
         train_end = int(n * train_ratio)
         val_end = train_end + int(n * val_ratio)
 

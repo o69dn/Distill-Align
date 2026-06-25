@@ -89,7 +89,7 @@ class OpenAIClient(BaseLLMClient):
             "messages": [{"role": m.role, "content": m.content} for m in messages],
             "temperature": temperature,
         }
-        if max_tokens:
+        if max_tokens is not None:
             payload["max_tokens"] = max_tokens
         if response_format:
             payload["response_format"] = response_format
@@ -122,7 +122,7 @@ class OpenAIClient(BaseLLMClient):
             elif e.response.status_code == 404:
                 raise ModelNotFoundError(f"Model not found: {self.model}") from e
             else:
-                raise LLMClientError(f"API error: {e.response.status_code} - {e.response.text}") from e
+                raise LLMClientError(f"API error: {e.response.status_code}") from e
         except Exception as e:
             raise LLMClientError(f"Request failed: {e}") from e
 
@@ -154,7 +154,7 @@ class OpenAIClient(BaseLLMClient):
             "prompt": prompt,
             "temperature": temperature,
         }
-        if max_tokens:
+        if max_tokens is not None:
             payload["max_tokens"] = max_tokens
         payload.update(kwargs)
 

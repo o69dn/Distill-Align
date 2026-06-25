@@ -78,6 +78,11 @@ class PreferenceFormatter(BaseFormatter):
                 entry: dict[str, Any]
                 if self.format_type == "dpo":
                     if len(assistant_turns) >= 2:
+                        logger.warning(
+                            "DPO chosen/rejected assignment is order-based (first assistant turn = chosen, "
+                            "second = rejected). This may not reflect actual quality differences. "
+                            "Consider using a scoring mechanism for meaningful preference pairs."
+                        )
                         entry = {
                             "prompt": prompt,
                             "chosen": assistant_turns[0].content,

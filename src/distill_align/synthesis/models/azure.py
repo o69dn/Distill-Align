@@ -98,7 +98,7 @@ class AzureClient(BaseLLMClient):
             "messages": [{"role": m.role, "content": m.content} for m in messages],
             "temperature": temperature,
         }
-        if max_tokens:
+        if max_tokens is not None:
             payload["max_tokens"] = max_tokens
         if response_format:
             payload["response_format"] = response_format
@@ -129,7 +129,7 @@ class AzureClient(BaseLLMClient):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded") from e
-            raise LLMClientError(f"Azure OpenAI API error: {e.response.status_code} - {e.response.text}") from e
+            raise LLMClientError(f"Azure OpenAI API error: {e.response.status_code}") from e
         except Exception as e:
             raise LLMClientError(f"Azure OpenAI request failed: {e}") from e
 
@@ -147,7 +147,7 @@ class AzureClient(BaseLLMClient):
             "prompt": prompt,
             "temperature": temperature,
         }
-        if max_tokens:
+        if max_tokens is not None:
             payload["max_tokens"] = max_tokens
         payload.update(kwargs)
 

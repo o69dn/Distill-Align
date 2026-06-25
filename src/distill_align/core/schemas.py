@@ -51,7 +51,7 @@ class DataChunk(BaseModel):
         if not self.id:
             file_path = self.metadata.file_path if self.metadata else ""
             line_start = self.metadata.line_start if self.metadata and self.metadata.line_start else 0
-            hash_input = f"{file_path}:{line_start}:{self.content[:100]}"
+            hash_input = f"{file_path}:{line_start}:{self.content}"
             self.id = hashlib.sha256(hash_input.encode()).hexdigest()[:16]
         return self
 

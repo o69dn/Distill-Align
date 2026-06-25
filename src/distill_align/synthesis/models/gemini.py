@@ -66,9 +66,11 @@ class GeminiClient(BaseLLMClient):
             if msg.role == "system":
                 # Gemini uses system_instruction instead of system messages
                 continue
+            # Gemini requires role "model" for assistant messages
+            gemini_role = "model" if msg.role == "assistant" else msg.role
             contents.append(
                 {
-                    "role": msg.role,
+                    "role": gemini_role,
                     "parts": [{"text": msg.content}],
                 }
             )
@@ -103,7 +105,7 @@ class GeminiClient(BaseLLMClient):
                 "temperature": temperature,
             },
         }
-        if max_tokens:
+        if max_tokens is not None:
             payload["generationConfig"]["maxOutputTokens"] = max_tokens
         if system_instruction:
             payload["system_instruction"] = {"parts": [{"text": system_instruction}]}
@@ -148,7 +150,7 @@ class GeminiClient(BaseLLMClient):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded") from e
-            raise LLMClientError(f"Gemini API error: {e.response.status_code} - {e.response.text}") from e
+            raise LLMClientError(f"Gemini API error: {e.response.status_code}") from e
         except Exception as e:
             raise LLMClientError(f"Gemini request failed: {e}") from e
 

@@ -266,7 +266,7 @@ def generate_default_config(project_name: str = "my-dataset", path: str = "disti
         Path to the generated file.
     """
     output_path = Path(path)
-    content = DEFAULT_CONFIG_TEMPLATE.format(project_name=project_name)
+    content = DEFAULT_CONFIG_TEMPLATE.replace("{project_name}", project_name)
 
     with open(output_path, "w", encoding="utf-8") as f:
         f.write(content)

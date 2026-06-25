@@ -4,7 +4,9 @@ Pipeline checkpoint system for save/resume support.
 Tracks job state across runs so synthesis can survive crashes.
 """
 
+import asyncio
 import json
+import os
 import time
 import uuid
 from datetime import datetime
@@ -105,6 +107,17 @@ class CheckpointManager:
         self.checkpoint_dir = Path(checkpoint_dir)
         self.checkpoint_dir.mkdir(parents=True, exist_ok=True)
 
+        # Per-job locks for async-safe read-modify-write
+        self._job_locks: dict[str, asyncio.Lock] = {}
+        self._locks_lock = asyncio.Lock()
+
+    async def _get_job_lock(self, job_id: str) -> asyncio.Lock:
+        """Get or create an asyncio lock for a specific job."""
+        async with self._locks_lock:
+            if job_id not in self._job_locks:
+                self._job_locks[job_id] = asyncio.Lock()
+            return self._job_locks[job_id]
+
     def _job_path(self, job_id: str) -> Path:
         """Get the checkpoint file path for a job."""
         return self.checkpoint_dir / f"{job_id}.json"
@@ -178,10 +191,20 @@ class CheckpointManager:
         self._save(checkpoint)
 
     def _save(self, checkpoint: JobCheckpoint) -> None:
-        """Internal save method."""
+        """Internal save method with atomic write.
+
+        Writes to a temporary file first, then atomically renames it over
+        the target path to prevent partial/corrupt checkpoints on crash.
+        """
         path = self._job_path(checkpoint.job_id)
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(checkpoint.model_dump(), f, indent=2, default=str)
+        tmp = path.with_suffix(f".tmp.{os.getpid()}")
+        try:
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(checkpoint.model_dump(), f, indent=2, default=str)
+            tmp.replace(path)  # Atomic on POSIX; near-atomic on Windows
+        finally:
+            if tmp.exists():
+                tmp.unlink()
 
     def start_job(self, job_id: str) -> JobCheckpoint | None:
         """
@@ -250,9 +273,9 @@ class CheckpointManager:
         logger.error(f"Job {job_id} failed: {error}")
         return checkpoint
 
-    def record_processed(self, job_id: str, item_id: str) -> JobCheckpoint | None:
+    async def record_processed(self, job_id: str, item_id: str) -> JobCheckpoint | None:
         """
-        Record a successfully processed item.
+        Record a successfully processed item with async locking.
 
         Args:
             job_id: Job identifier.
@@ -261,21 +284,23 @@ class CheckpointManager:
         Returns:
             Updated checkpoint or None.
         """
-        checkpoint = self.load_job(job_id)
-        if checkpoint is None:
-            return None
+        lock = await self._get_job_lock(job_id)
+        async with lock:
+            checkpoint = self.load_job(job_id)
+            if checkpoint is None:
+                return None
 
-        if item_id not in checkpoint.processed_ids:
-            checkpoint.processed_ids.append(item_id)
-            checkpoint.processed_items = len(checkpoint.processed_ids)
-            checkpoint.updated_at = time.time()
-            self.save_job(checkpoint)
+            if item_id not in checkpoint.processed_ids:
+                checkpoint.processed_ids.append(item_id)
+                checkpoint.processed_items = len(checkpoint.processed_ids)
+                checkpoint.updated_at = time.time()
+                self.save_job(checkpoint)
 
-        return checkpoint
+            return checkpoint
 
-    def record_failed(self, job_id: str, item_id: str, error: str = "") -> JobCheckpoint | None:
+    async def record_failed(self, job_id: str, item_id: str, error: str = "") -> JobCheckpoint | None:
         """
-        Record a failed item.
+        Record a failed item with async locking.
 
         Args:
             job_id: Job identifier.
@@ -285,19 +310,21 @@ class CheckpointManager:
         Returns:
             Updated checkpoint or None.
         """
-        checkpoint = self.load_job(job_id)
-        if checkpoint is None:
-            return None
+        lock = await self._get_job_lock(job_id)
+        async with lock:
+            checkpoint = self.load_job(job_id)
+            if checkpoint is None:
+                return None
 
-        if item_id not in checkpoint.failed_ids:
-            checkpoint.failed_ids.append(item_id)
-            checkpoint.failed_items = len(checkpoint.failed_ids)
-            if error:
-                checkpoint.failed_errors[item_id] = error
-            checkpoint.updated_at = time.time()
-            self.save_job(checkpoint)
+            if item_id not in checkpoint.failed_ids:
+                checkpoint.failed_ids.append(item_id)
+                checkpoint.failed_items = len(checkpoint.failed_ids)
+                if error:
+                    checkpoint.failed_errors[item_id] = error
+                checkpoint.updated_at = time.time()
+                self.save_job(checkpoint)
 
-        return checkpoint
+            return checkpoint
 
     def is_processed(self, job_id: str, item_id: str) -> bool:
         """

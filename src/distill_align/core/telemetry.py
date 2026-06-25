@@ -18,8 +18,15 @@ TELEMETRY_URL = ""  # Not yet operational — see note above
 
 
 def is_enabled() -> bool:
-    """Check if telemetry is enabled."""
-    return False  # Telemetry backend not yet deployed
+    """Check if telemetry is enabled.
+
+    Telemetry is opt-in and disabled by default. Enable by setting
+    ``DISTILL_TELEMETRY=true`` in the environment.
+    """
+    import os
+
+    env_val = os.environ.get(TELEMETRY_ENV_VAR, "").strip().lower()
+    return env_val in ("true", "1", "yes")
 
 
 def track_event(event: str, properties: dict[str, Any] | None = None) -> None:

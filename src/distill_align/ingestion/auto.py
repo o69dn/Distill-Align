@@ -180,7 +180,8 @@ class AutoIngestionPipeline:
         Args:
             directory: Directory to scan.
             recursive: Whether to search subdirectories.
-            ignore_patterns: Glob patterns to ignore.
+            ignore_patterns: Directory/file names to ignore (exact match against
+                path components). If None, common cache and VCS dirs are ignored.
 
         Returns:
             List of supported file paths.
@@ -209,19 +210,22 @@ class AutoIngestionPipeline:
         files = []
 
         pattern = "**/*" if recursive else "*"
-        for path in directory.glob(pattern):
-            if not path.is_file():
-                continue
+        try:
+            for path in directory.glob(pattern):
+                if not path.is_file():
+                    continue
 
-            # Check ignore patterns
-            rel_path = path.relative_to(directory)
-            parts = rel_path.parts
-            if any(ig in parts for ig in ignore):
-                continue
+                # Check ignore patterns
+                rel_path = path.relative_to(directory)
+                parts = rel_path.parts
+                if any(ig in parts for ig in ignore):
+                    continue
 
-            # Check extension
-            if path.suffix.lower() in supported_extensions:
-                files.append(path)
+                # Check extension
+                if path.suffix.lower() in supported_extensions:
+                    files.append(path)
+        except PermissionError:
+            logger.warning(f"Permission denied while scanning {directory}, some files may be skipped")
 
         logger.info(f"Found {len(files)} supported files in {directory}")
         return sorted(files)

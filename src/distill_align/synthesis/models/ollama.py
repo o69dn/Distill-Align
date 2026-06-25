@@ -78,7 +78,7 @@ class OllamaClient(BaseLLMClient):
         options: dict[str, object] = {
             "temperature": temperature,
         }
-        if max_tokens:
+        if max_tokens is not None:
             options["num_predict"] = max_tokens
         payload = {
             "model": self.model,
@@ -86,6 +86,8 @@ class OllamaClient(BaseLLMClient):
             "stream": False,
             "options": options,
         }
+        if response_format:
+            payload["format"] = "json"
         payload.update(kwargs)
 
         try:
@@ -113,7 +115,7 @@ class OllamaClient(BaseLLMClient):
             if e.response.status_code == 404:
                 raise ModelNotFoundError(f"Model not found: {self.model}") from e
             else:
-                raise LLMClientError(f"Ollama API error: {e.response.status_code} - {e.response.text}") from e
+                raise LLMClientError(f"Ollama API error: {e.response.status_code}") from e
         except Exception as e:
             raise LLMClientError(f"Ollama request failed: {e}") from e
 
@@ -143,7 +145,7 @@ class OllamaClient(BaseLLMClient):
         options: dict[str, object] = {
             "temperature": temperature,
         }
-        if max_tokens:
+        if max_tokens is not None:
             options["num_predict"] = max_tokens
         payload = {
             "model": self.model,
@@ -176,7 +178,7 @@ class OllamaClient(BaseLLMClient):
             if e.response.status_code == 404:
                 raise ModelNotFoundError(f"Model not found: {self.model}") from e
             else:
-                raise LLMClientError(f"Ollama API error: {e.response.status_code} - {e.response.text}") from e
+                raise LLMClientError(f"Ollama API error: {e.response.status_code}") from e
         except Exception as e:
             raise LLMClientError(f"Ollama request failed: {e}") from e
 

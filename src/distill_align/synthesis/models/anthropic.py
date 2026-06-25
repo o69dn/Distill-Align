@@ -95,7 +95,7 @@ class AnthropicClient(BaseLLMClient):
             "model": self.model,
             "messages": api_messages,
             "temperature": temperature,
-            "max_tokens": max_tokens or 4096,
+            "max_tokens": max_tokens if max_tokens is not None else 4096,
         }
         if system_content:
             payload["system"] = system_content
@@ -130,7 +130,7 @@ class AnthropicClient(BaseLLMClient):
         except httpx.HTTPStatusError as e:
             if e.response.status_code == 429:
                 raise RateLimitError("Rate limit exceeded") from e
-            raise LLMClientError(f"Anthropic API error: {e.response.status_code} - {e.response.text}") from e
+            raise LLMClientError(f"Anthropic API error: {e.response.status_code}") from e
         except Exception as e:
             raise LLMClientError(f"Anthropic request failed: {e}") from e
 

@@ -137,7 +137,7 @@ class IngestionPipeline:
                 files.extend(directory.glob(pattern))
 
         # Filter to supported extensions
-        supported_extensions = set(LOADER_MAP.keys()) | {".py", ".js", ".ts", ".java", ".cpp", ".c", ".go", ".rs"}
+        supported_extensions = set(LOADER_MAP.keys()) | {".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".cpp", ".c", ".h", ".rs", ".go", ".rb"}
         files = [f for f in files if f.is_file() and f.suffix.lower() in supported_extensions]
 
         logger.info(f"Found {len(files)} files to ingest")
@@ -200,7 +200,7 @@ class IngestionPipeline:
                 files.extend(directory.glob(pattern))
 
         # Filter to supported extensions
-        supported_extensions = set(LOADER_MAP.keys()) | {".py", ".js", ".ts", ".java", ".cpp", ".c", ".go", ".rs"}
+        supported_extensions = set(LOADER_MAP.keys()) | {".py", ".js", ".ts", ".tsx", ".jsx", ".java", ".cpp", ".c", ".h", ".rs", ".go", ".rb"}
         files = [f for f in files if f.is_file() and f.suffix.lower() in supported_extensions]
 
         logger.info(f"Found {len(files)} files to ingest")

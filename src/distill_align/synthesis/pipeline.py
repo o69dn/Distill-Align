@@ -197,7 +197,7 @@ class SynthesisPipeline:
 
         # Step 1: Socratic Transformer
         if self.config.socratic_enabled:
-            conversation = await self._apply_socratic(chunk.content, metadata, llm_client)
+            conversation = await self._apply_socratic(chunk.content, metadata, llm_client, source_chunk_id=chunk_id)
 
         # Step 2: Scaffold Action
         if self.config.scaffold_enabled and conversation:
@@ -240,6 +240,7 @@ class SynthesisPipeline:
         content: str,
         metadata: dict[str, Any],
         llm_client: BaseLLMClient,
+        source_chunk_id: str = "",
     ) -> ConversationSchema | None:
         """Apply the Socratic Transformer pipeline."""
         user_prompt = render_socratic_prompt(content, metadata)
@@ -261,7 +262,7 @@ class SynthesisPipeline:
 
             return ConversationSchema(
                 id=str(uuid.uuid4()),
-                source_chunk_id="",
+                source_chunk_id=source_chunk_id,
                 turns=turns,
                 reasoning_trace=parsed.get("reasoning_trace"),
             )

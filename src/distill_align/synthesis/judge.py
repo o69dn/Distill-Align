@@ -27,7 +27,7 @@ Conversation:
 {conversation_text}
 
 Respond with a JSON object only:
-{{"relevance": <score>, "coherence": <score>, "correctness": <score>, "completeness": <score>, "safety": <score>, "overall": <average>, "explanation": "<brief explanation>"}}
+{"relevance": <score>, "coherence": <score>, "correctness": <score>, "completeness": <score>, "safety": <score>, "overall": <average>, "explanation": "<brief explanation>"}}
 """
 
 
@@ -63,9 +63,12 @@ class ConversationJudge:
             indent=2,
         )
 
-        prompt = JUDGE_PROMPT.format(
-            source_content=source_content or "No source content provided",
-            conversation_text=conversation_text,
+        # Use replace() instead of format() to avoid KeyError/IndexError
+        # when source content contains literal { or } characters (e.g. source code).
+        prompt = JUDGE_PROMPT.replace(
+            "{source_content}", source_content or "No source content provided",
+        ).replace(
+            "{conversation_text}", conversation_text,
         )
 
         try:

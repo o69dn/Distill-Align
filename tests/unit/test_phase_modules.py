@@ -88,29 +88,43 @@ class TestCheckpointManager:
         assert job.status == JobStatus.PENDING
 
     def test_start_and_complete_job(self, manager):
-        job = manager.create_job("synthesize", total_items=10)
-        manager.start_job(job.job_id)
-        manager.record_processed(job.job_id, "item-1")
-        manager.record_processed(job.job_id, "item-2")
-        completed = manager.complete_job(job.job_id, stats={"total_tokens": 1000})
+        import asyncio
 
+        async def _run():
+            job = manager.create_job("synthesize", total_items=10)
+            manager.start_job(job.job_id)
+            await manager.record_processed(job.job_id, "item-1")
+            await manager.record_processed(job.job_id, "item-2")
+            return manager.complete_job(job.job_id, stats={"total_tokens": 1000})
+
+        completed = asyncio.run(_run())
         assert completed.status == JobStatus.COMPLETED
         assert completed.processed_items == 2
 
     def test_record_failed(self, manager):
-        job = manager.create_job("synthesize", total_items=10)
-        manager.record_failed(job.job_id, "item-1", "Test error")
-        checkpoint = manager.load_job(job.job_id)
+        import asyncio
+
+        async def _run():
+            job = manager.create_job("synthesize", total_items=10)
+            await manager.record_failed(job.job_id, "item-1", "Test error")
+            return manager.load_job(job.job_id)
+
+        checkpoint = asyncio.run(_run())
         assert checkpoint.failed_items == 1
         assert "item-1" in checkpoint.failed_errors
 
     def test_get_unprocessed_ids(self, manager):
-        job = manager.create_job("synthesize", total_items=5)
-        manager.record_processed(job.job_id, "a")
-        manager.record_processed(job.job_id, "b")
+        import asyncio
 
+        async def _run():
+            job = manager.create_job("synthesize", total_items=5)
+            await manager.record_processed(job.job_id, "a")
+            await manager.record_processed(job.job_id, "b")
+            return job.job_id
+
+        job_id = asyncio.run(_run())
         all_ids = ["a", "b", "c", "d", "e"]
-        unprocessed = manager.get_unprocessed_ids(job.job_id, all_ids)
+        unprocessed = manager.get_unprocessed_ids(job_id, all_ids)
         assert set(unprocessed) == {"c", "d", "e"}
 
     def test_list_jobs(self, manager):

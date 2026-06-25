@@ -6,7 +6,6 @@ and Unsloth config.
 """
 
 from collections.abc import Iterable
-from itertools import tee
 from pathlib import Path
 from typing import Any, cast
 
@@ -22,6 +21,7 @@ from .formatters.conversation import ConversationFormatter
 from .formatters.hf_messages import HFMessagesFormatter
 from .formatters.jsonl import JsonlFormatter
 from .formatters.parquet import ParquetFormatter
+from .formatters.preference import PreferenceFormatter
 from .formatters.sharegpt import ShareGPTFormatter
 from .splitter import DatasetSplitter
 from .unsloth_builder import UnslothConfigBuilder
@@ -36,6 +36,7 @@ FORMATTER_MAP: dict[str, type[BaseFormatter]] = {
     "hf_messages": HFMessagesFormatter,
     "jsonl": JsonlFormatter,
     "parquet": ParquetFormatter,
+    "preference": PreferenceFormatter,
 }
 
 
@@ -213,8 +214,12 @@ class ExportPipeline:
         ``hf_messages`` via JSONL mode) benefit from this. Other formatters
         will buffer the entire iterable internally.
 
-        When multiple formats are requested, the iterable is fanned out using
-        :func:`itertools.tee`, so each formatter receives its own iterator.
+        When a **single** format is requested, the iterable is passed
+        directly to the formatter without buffering. When **multiple**
+        formats are requested, the iterable is materialised into a list
+        so it can be fanned out to each formatter (``itertools.tee`` was
+        previously used but it also materialises the full iterable in
+        practice when iterators are consumed sequentially).
 
         Args:
             conversations: Iterable of conversations (streaming source).
@@ -226,28 +231,43 @@ class ExportPipeline:
         """
         export_formats = cast("list[str]", self.config.formats if formats is None else formats)
 
-        # Fan out the iterable for each format
-        iterators = tee(conversations, len(export_formats))
+        def _ext(format_name: str) -> str:
+            if format_name == "parquet":
+                return ".parquet"
+            if format_name in ("jsonl", "hf_messages"):
+                return ".jsonl"
+            return ".json"
 
-        output_files: dict[str, Path] = {}
-
-        for format_name, conv_iter in zip(export_formats, iterators, strict=False):
+        # Single format — stream directly, no buffering
+        if len(export_formats) == 1:
+            format_name = export_formats[0]
+            formatter = self._get_formatter(format_name)
+            filename = f"{dataset_filename}_{format_name}{_ext(format_name)}"
+            output_files: dict[str, Path] = {}
             try:
-                formatter = self._get_formatter(format_name)
-                # Determine file extension based on formatter
-                if format_name == "parquet":
-                    ext = ".parquet"
-                elif format_name in ("jsonl", "hf_messages"):
-                    ext = ".jsonl"
-                else:
-                    ext = ".json"
-                filename = f"{dataset_filename}_{format_name}{ext}"
-                output_path = formatter.format_stream(conv_iter, filename)
-                output_files[format_name] = output_path
-                logger.info(f"Streamed export to {format_name}: {output_path}")
+                output_files[format_name] = formatter.format_stream(conversations, filename)
+                logger.info(f"Streamed export to {format_name}: {output_files[format_name]}")
             except Exception as e:
                 logger.error(f"Failed to stream export to {format_name}: {e}")
                 raise ExportError(f"Streaming export to {format_name} failed: {e}") from e
+            return output_files
+
+        # Multiple formats — materialise the iterable and fan out.
+        # (True multi-format streaming without materialisation would
+        # require writing to all output files in a single pass, which
+        # the current formatter API does not support.)
+        conversations_list = list(conversations)
+        output_files = {}
+
+        for format_name in export_formats:
+            try:
+                formatter = self._get_formatter(format_name)
+                filename = f"{dataset_filename}_{format_name}{_ext(format_name)}"
+                output_files[format_name] = formatter.format(conversations_list, filename)
+                logger.info(f"Exported {len(conversations_list)} conversations to {format_name}: {output_files[format_name]}")
+            except Exception as e:
+                logger.error(f"Failed to export to {format_name}: {e}")
+                raise ExportError(f"Export to {format_name} failed: {e}") from e
 
         return output_files
 

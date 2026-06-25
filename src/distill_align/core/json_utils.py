@@ -48,7 +48,7 @@ def safe_json_loads(data: str, max_bytes: int = MAX_JSON_BYTES, label: str = "da
     """
     size = len(data.encode("utf-8"))
     _check_size(size, max_bytes, label=label)
-    return json.loads(data, parse_int=str, parse_constant=str)
+    return json.loads(data)
 
 
 def safe_json_loads_value(value: Any, label: str = "value") -> Any:

@@ -80,20 +80,12 @@ class AlpacaFormatter(BaseFormatter):
         if not instruction:
             return None
 
-        # Find first assistant turn (output)
-        output = None
-        for turn in conversation.turns:
-            if turn.role == "assistant":
-                output = turn.content
-                break
-
-        if not output:
+        # For multi-turn, combine all assistant turns into output
+        assistant_turns = [t for t in conversation.turns if t.role == "assistant"]
+        if not assistant_turns:
             return None
 
-        # For multi-turn, combine remaining turns into output
-        assistant_turns = [t for t in conversation.turns if t.role == "assistant"]
-        if len(assistant_turns) > 1:
-            output = "\n\n".join(t.content for t in assistant_turns)
+        output = "\n\n".join(t.content for t in assistant_turns)
 
         return AlpacaEntry(
             instruction=instruction,

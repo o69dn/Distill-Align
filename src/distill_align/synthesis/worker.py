@@ -94,7 +94,7 @@ class BatchWorker:
         # Checkpoint (optional)
         self.checkpoint = checkpoint_manager
 
-        # Statistics
+        # Statistics (protected by lock for concurrent access)
         self.stats = {
             "total": 0,
             "completed": 0,
@@ -103,6 +103,12 @@ class BatchWorker:
             "total_tokens": 0,
             "total_cost": 0.0,
         }
+        self._stats_lock = asyncio.Lock()
+
+    async def _increment_stat(self, key: str, amount: int = 1) -> None:
+        """Thread/async-safe stats counter increment."""
+        async with self._stats_lock:
+            self.stats[key] = self.stats.get(key, 0) + amount
 
     async def process_item(
         self,
@@ -134,11 +140,11 @@ class BatchWorker:
             cached = self.cache.get(cache_key)
             if cached is not None:
                 logger.debug(f"Cache hit for {item_id}")
-                self.stats["cached"] += 1
+                await self._increment_stat("cached")
 
                 # Record in checkpoint
                 if job_id and self.checkpoint:
-                    self.checkpoint.record_processed(job_id, item_id)
+                    await self.checkpoint.record_processed(job_id, item_id)
 
                 return cached["value"]  # type: ignore[no-any-return]
 
@@ -162,18 +168,18 @@ class BatchWorker:
 
                 # Record in checkpoint
                 if job_id and self.checkpoint:
-                    self.checkpoint.record_processed(job_id, item_id)
+                    await self.checkpoint.record_processed(job_id, item_id)
 
-                self.stats["completed"] += 1
+                await self._increment_stat("completed")
                 return result  # type: ignore[no-any-return]
 
             except Exception as e:
                 logger.error(f"Failed to process {item_id}: {e}")
-                self.stats["failed"] += 1
+                await self._increment_stat("failed")
 
                 # Record failure in checkpoint
                 if job_id and self.checkpoint:
-                    self.checkpoint.record_failed(job_id, item_id, str(e))
+                    await self.checkpoint.record_failed(job_id, item_id, str(e))
 
                 raise
 
@@ -289,7 +295,7 @@ class BatchWorker:
                         "item": items[i],
                     }
                 )
-                self.stats["failed"] += 1
+                await self._increment_stat("failed")
 
         logger.info(
             f"Batch complete: {self.stats['completed']} succeeded, "

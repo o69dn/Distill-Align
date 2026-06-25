@@ -59,11 +59,12 @@ class JsonlFormatter(BaseFormatter):
 
         if self.flatten:
             record["id"] = conv.id
-            record["source_chunk_id"] = conv.source_chunk_id
-            if conv.confidence_score is not None:
-                record["confidence_score"] = conv.confidence_score
-            if self.include_metadata and conv.judge_scores:
-                record["judge_scores"] = conv.judge_scores
+            if self.include_metadata:
+                record["source_chunk_id"] = conv.source_chunk_id
+                if conv.confidence_score is not None:
+                    record["confidence_score"] = conv.confidence_score
+                if conv.judge_scores:
+                    record["judge_scores"] = conv.judge_scores
         elif self.include_metadata:
             record["id"] = conv.id
             record["source_chunk_id"] = conv.source_chunk_id

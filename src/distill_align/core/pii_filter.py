@@ -139,7 +139,7 @@ class PIIScanner:
 
     # AWS Secret Access Key
     AWS_SECRET_KEY: ClassVar[re.Pattern] = re.compile(
-        r"(?:(?i)aws.{0,20}?(?:secret|key|token).{0,20}?)[:\s=]+[A-Za-z0-9/+=]{40}\b"
+        r"(?i)aws.{0,20}?(?:secret|key|token).{0,20}?[:\s=]+[A-Za-z0-9/+=]{40}\b"
     )
 
     # GitHub personal access tokens (ghp_, gho_, ghu_, ghs_, ghf_)
@@ -166,14 +166,19 @@ class PIIScanner:
     JWT_TOKEN: ClassVar[re.Pattern] = re.compile(r"\beyJ[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+\.[a-zA-Z0-9_\-]+\b")
 
     # SSH private keys (embedded in text)
-    SSH_PRIVATE_KEY: ClassVar[re.Pattern] = re.compile(r"-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|SSH)\s+PRIVATE\s+KEY-----")
+    SSH_PRIVATE_KEY: ClassVar[re.Pattern] = re.compile(
+        r"-----BEGIN\s+(?:RSA|DSA|EC|OPENSSH|SSH)\s+PRIVATE\s+KEY-----"
+        r"[A-Za-z0-9+/=\s]+?"
+        r"-----END\s+(?:RSA|DSA|EC|OPENSSH|SSH)\s+PRIVATE\s+KEY-----",
+        re.DOTALL,
+    )
 
     # Google API keys (AIza... or ya29...)
     GOOGLE_API_KEY: ClassVar[re.Pattern] = re.compile(r"\bAIza[0-9A-Za-z_\-]{35}\b")
 
     # Password / connection strings
     CONNECTION_STRING: ClassVar[re.Pattern] = re.compile(
-        r"(?:(?i)(?:password|pwd|passwd|connection)[:\s=]+)[^\s,;'\"]{8,100}"
+        r"(?i)(?:password|pwd|passwd|connection)[:\s=]+[^\s,;'\"]{8,100}"
     )
 
     # ------------------------------------------------------------------

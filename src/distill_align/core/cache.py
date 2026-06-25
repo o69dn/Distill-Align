@@ -219,9 +219,16 @@ class CacheManager:
             with sqlite3.connect(str(self.db_path)) as conn:
                 conn.execute(
                     """
-                    INSERT OR REPLACE INTO cache
-                    (key, value, model, provider, tokens_used, created_at, accessed_at, access_count)
+                    INSERT INTO cache
+                        (key, value, model, provider, tokens_used, created_at, accessed_at, access_count)
                     VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+                    ON CONFLICT(key) DO UPDATE SET
+                        value       = excluded.value,
+                        model       = excluded.model,
+                        provider    = excluded.provider,
+                        tokens_used = excluded.tokens_used,
+                        accessed_at = excluded.accessed_at,
+                        access_count = access_count + 1
                     """,
                     (key, json.dumps(value), model, provider, tokens_used, now, now),
                 )
