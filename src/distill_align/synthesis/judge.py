@@ -66,9 +66,11 @@ class ConversationJudge:
         # Use replace() instead of format() to avoid KeyError/IndexError
         # when source content contains literal { or } characters (e.g. source code).
         prompt = JUDGE_PROMPT.replace(
-            "{source_content}", source_content or "No source content provided",
+            "{source_content}",
+            source_content or "No source content provided",
         ).replace(
-            "{conversation_text}", conversation_text,
+            "{conversation_text}",
+            conversation_text,
         )
 
         try:

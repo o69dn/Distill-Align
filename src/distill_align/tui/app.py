@@ -1351,9 +1351,7 @@ class DistillAlignApp(App):
                     chunks = pipeline.ingest_file(source_path)
                 else:
                     if config["auto_detect"] and hasattr(pipeline, "ingest_directory"):
-                        chunks = pipeline.ingest_directory(
-                            source_path, recursive=config["recursive"]
-                        )
+                        chunks = pipeline.ingest_directory(source_path, recursive=config["recursive"])
                     else:
                         chunks = pipeline.ingest_directory(source_path, recursive=config["recursive"])
 

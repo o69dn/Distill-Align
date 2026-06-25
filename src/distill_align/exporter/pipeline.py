@@ -264,7 +264,9 @@ class ExportPipeline:
                 formatter = self._get_formatter(format_name)
                 filename = f"{dataset_filename}_{format_name}{_ext(format_name)}"
                 output_files[format_name] = formatter.format(conversations_list, filename)
-                logger.info(f"Exported {len(conversations_list)} conversations to {format_name}: {output_files[format_name]}")
+                logger.info(
+                    f"Exported {len(conversations_list)} conversations to {format_name}: {output_files[format_name]}"
+                )
             except Exception as e:
                 logger.error(f"Failed to export to {format_name}: {e}")
                 raise ExportError(f"Export to {format_name} failed: {e}") from e
