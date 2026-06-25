@@ -17,11 +17,10 @@ from typing import Any
 
 import httpx
 import pytest
-from pytest_httpx import HTTPXMock
-
 from distill_align.core.exceptions import LLMClientError, ModelNotFoundError, RateLimitError
 from distill_align.synthesis.models.base import LLMMessage
 from distill_align.synthesis.models.openai import OpenAIClient
+from pytest_httpx import HTTPXMock
 
 # ------------------------------------------------------------------
 # Fixtures

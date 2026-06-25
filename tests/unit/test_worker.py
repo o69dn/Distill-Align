@@ -18,7 +18,6 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
-
 from distill_align.core.cache import CacheManager
 from distill_align.core.exceptions import RateLimitError
 from distill_align.synthesis.models.base import BaseLLMClient
