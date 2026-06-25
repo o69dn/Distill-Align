@@ -30,6 +30,8 @@ from rich.table import Table
 from ..core.config_file import find_config_file, generate_default_config, load_config
 from ..core.logging import setup_logging
 from ..core.schemas import ExportConfig, IngestionConfig, SynthesisConfig
+from ..core.update_checker import check_pypi_version
+from .. import __version__
 
 # Main Typer app
 app = typer.Typer(
@@ -61,6 +63,17 @@ def main(
     """Distill-Align: Generate fine-tuning datasets from raw domain data."""
     setup_logging(log_level=log_level, log_file=log_file, log_format=log_format)
     ctx.obj = {"config_file": config_file}
+
+    # Async-free PyPI update check (fast, silent on failure)
+    try:
+        latest = check_pypi_version()
+        if latest:
+            console.print(
+                f"[yellow]⚠ Update available: v{__version__} → v{latest}. "
+                "Run: pip install --upgrade distill-align[/yellow]"
+            )
+    except Exception:
+        pass  # never crash the CLI
 
 
 @app.command()

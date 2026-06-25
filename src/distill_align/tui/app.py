@@ -47,6 +47,8 @@ from ..core.cache import CacheManager
 from ..core.checkpoint import CheckpointManager
 from ..core.config_file import find_config_file, generate_default_config, load_config
 from ..core.json_utils import safe_json_load
+from ..core.update_checker import check_pypi_version
+from .. import __version__
 from ..synthesis.models.base import BaseLLMClient
 
 # =============================================================================
@@ -1080,6 +1082,30 @@ class DistillAlignApp(App):
             log_view.write(f"[cyan]i[/cyan] Working directory: {Path.cwd()}")
             log_view.write("[cyan]i[/cyan] Press [yellow]q[/yellow] to quit, [yellow]r[/yellow] to refresh")
             log_view.write("[cyan]i[/cyan] Tabs: [yellow]0[/yellow]-[yellow]9[/yellow] to switch tabs")
+
+        # Background update check (non-blocking, silent on failure)
+        self.run_worker(
+            self._check_update_worker,
+            thread=True,
+            result_callback=self._on_update_result,
+        )
+
+    def _check_update_worker(self) -> str | None:
+        """Worker thread: check PyPI for a newer version."""
+        return check_pypi_version()
+
+    def _on_update_result(self, latest: str | None) -> None:
+        """Called on the main thread with the update check result."""
+        if latest:
+            log_view = self.query_one("#log-view", RichLog)
+            log_view.write(
+                f"[yellow]⚠ Update available: v{__version__} → v{latest}. "
+                "Run: pip install --upgrade distill-align[/yellow]"
+            )
+            self.notify(
+                f"Update available: v{__version__} → v{latest}",
+                timeout=8,
+            )
 
     def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab."""
