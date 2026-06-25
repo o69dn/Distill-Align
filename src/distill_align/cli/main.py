@@ -27,11 +27,11 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
+from .. import __version__
 from ..core.config_file import find_config_file, generate_default_config, load_config
 from ..core.logging import setup_logging
 from ..core.schemas import ExportConfig, IngestionConfig, SynthesisConfig
 from ..core.update_checker import check_pypi_version
-from .. import __version__
 
 # Main Typer app
 app = typer.Typer(

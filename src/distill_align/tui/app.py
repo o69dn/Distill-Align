@@ -43,12 +43,12 @@ from textual.widgets import (  # type: ignore[import-not-found]
     TabPane,
 )
 
+from .. import __version__
 from ..core.cache import CacheManager
 from ..core.checkpoint import CheckpointManager
 from ..core.config_file import find_config_file, generate_default_config, load_config
 from ..core.json_utils import safe_json_load
 from ..core.update_checker import check_pypi_version
-from .. import __version__
 from ..synthesis.models.base import BaseLLMClient
 
 # =============================================================================
