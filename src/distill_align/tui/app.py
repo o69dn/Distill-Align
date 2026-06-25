@@ -197,7 +197,7 @@ class DashboardTab(Container):
             api_status = "[green]Set[/green]" if api_key else "[yellow]Not set[/yellow]"
             widget = self.query_one("#system-info", Static)
             widget.update(
-                f"[bold]System Info[/bold]\n" f"Python {py_ver}  |  Config: {config_status}  |  API Key: {api_status}"
+                f"[bold]System Info[/bold]\nPython {py_ver}  |  Config: {config_status}  |  API Key: {api_status}"
             )
         except Exception as e:
             logger.error(f"Failed to refresh system info: {e}")

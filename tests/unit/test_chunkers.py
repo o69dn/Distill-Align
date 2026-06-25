@@ -3,6 +3,7 @@ Unit tests for ingestion module.
 """
 
 import pytest
+
 from distill_align.core.exceptions import ChunkerError
 from distill_align.core.schemas import DataChunk, SourceMetadata
 from distill_align.ingestion.chunkers.code import CodeChunker
