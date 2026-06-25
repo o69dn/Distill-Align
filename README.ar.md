@@ -10,6 +10,12 @@
 >
 > إطار عمل سطر أوامر / بايثون يُؤتمت عملية إنشاء مجموعات بيانات عالية الجودة لضبط النماذج اللغوية (fine-tuning) انطلاقًا من البيانات الخام. يستخدم نماذج الاستدلال المتطورة كمُعلّمين، ويلتقط آثار تفكيرهم العميق، ثم يُرشّحها ويُهذّبها إلى صيغ تعليمية منظمة ومناسبة لضبط النماذج.
 
+📖 **الوثائق الكاملة**: [o69dn.github.io/Distill-Align](https://o69dn.github.io/Distill-Align/)
+
+🌐 **English**: [README.md](README.md) — English version of this guide.
+
+---
+
 ## الميزات
 
 - **استيراد ذكي**: أنابيب معالجة غير متزامنة مع تقسيم دلالي لمستندات Markdown و Code (يدعم أيضًا PDF و DOCX و HTML و CSV و JSON و Jupyter notebook وصفحات الويب).
@@ -34,6 +40,86 @@ pip install distill-align[parquet]   # دعم تصدير Parquet
 pip install distill-align[hub]       # تكامل مع HuggingFace Hub
 pip install distill-align[all]       # جميع الإضافات
 ```
+
+## إدارة الحزمة
+
+### التحديث
+
+```bash
+pip install --upgrade distill-align
+```
+
+### الإزالة
+
+```bash
+pip uninstall distill-align
+```
+
+### التحقق من التثبيت
+
+```bash
+distill-align --version
+distill-align --help
+```
+
+## Docker
+
+صورة Docker جاهزة للإنتاج:
+
+```bash
+# بناء محلي
+docker build -t distill-align .
+
+# تشغيل
+docker run --rm -v "$(pwd):/app" distill-align --help
+
+# توليد الحوارات مع مجلدات محملة
+docker run --rm \
+  -v "$(pwd)/data:/app/data" \
+  -v "$(pwd)/output:/app/output" \
+  -e OPENAI_API_KEY="sk-..." \
+  distill-align synthesize \
+    --input /app/data/chunks.json \
+    --output /app/output/conversations.json \
+    --provider openai \
+    --model gpt-4o
+```
+
+## الإعدادات
+
+يمكن تهيئة Distill-Align عبر **ثلاث طبقات** (الأعلى أولوية أولاً):
+
+1. **وسائط سطر الأوامر (CLI)** — تُمرر عند التشغيل
+2. **متغيرات البيئة** — مسبوقة بالبادئة `DISTILL_`
+3. **ملف الإعدادات** — بصيغة YAML أو TOML ويُولّد عبر `distill-align init`
+
+لتوليد ملف إعدادات مبدئي:
+
+```bash
+distill-align init
+```
+
+> 📖 دليل الإعدادات الكامل: [docs/configuration.md](docs/configuration.md)
+
+### إعداد سريع باستخدام المتغيرات فقط
+
+```bash
+export DISTILL_LLM_PROVIDER=openai
+export DISTILL_LLM_MODEL=gpt-4o
+export DISTILL_LLM_API_KEY=sk-...
+export DISTILL_LOG_LEVEL=INFO
+```
+
+## متغيرات البيئة (مفاتيح API)
+
+| المتغير                | مطلوب لـ           | الوصف                            |
+|------------------------|---------------------|----------------------------------|
+| `OPENAI_API_KEY`       | OpenAI / Azure      | مفتاح OpenAI API                 |
+| `ANTHROPIC_API_KEY`    | Anthropic           | مفتاح Anthropic API              |
+| `GOOGLE_API_KEY`       | Google Gemini       | مفتاح Google AI Studio API       |
+| `AZURE_OPENAI_API_KEY` | Azure OpenAI        | مفتاح مورد Azure OpenAI          |
+| `AZURE_OPENAI_ENDPOINT`| Azure OpenAI        | رابط نقطة نهاية Azure OpenAI     |
+| `DISTILL_LLM_API_KEY`  | أي مزود             | تجاوز عام (له الأولوية)          |
 
 ## البداية السريعة
 

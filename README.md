@@ -12,6 +12,10 @@
 
 🌐 **العربية**: [README.ar.md](README.ar.md) — الترجمة العربية لهذا الدليل.
 
+📖 **Full documentation**: [o69dn.github.io/Distill-Align](https://o69dn.github.io/Distill-Align/)
+
+---
+
 ## Features
 
 - **Smart Ingestion**: Async chunking pipelines with semantic-aware splitting for Markdown and Code (PDF, DOCX, HTML, CSV, JSON, Jupyter notebooks, and web pages also supported).
@@ -36,6 +40,86 @@ pip install distill-align[parquet]   # Parquet export support
 pip install distill-align[hub]       # HuggingFace Hub integration
 pip install distill-align[all]       # All extras
 ```
+
+## Package Management
+
+### Update
+
+```bash
+pip install --upgrade distill-align
+```
+
+### Uninstall
+
+```bash
+pip uninstall distill-align
+```
+
+### Verify Installation
+
+```bash
+distill-align --version
+distill-align --help
+```
+
+## Docker
+
+A production-ready Docker image is available:
+
+```bash
+# Build locally
+docker build -t distill-align .
+
+# Run
+docker run --rm -v "$(pwd):/app" distill-align --help
+
+# Synthesize with mounted volumes
+docker run --rm \
+  -v "$(pwd)/data:/app/data" \
+  -v "$(pwd)/output:/app/output" \
+  -e OPENAI_API_KEY="sk-..." \
+  distill-align synthesize \
+    --input /app/data/chunks.json \
+    --output /app/output/conversations.json \
+    --provider openai \
+    --model gpt-4o
+```
+
+## Configuration
+
+Distill-Align can be configured via **three layers** (highest priority first):
+
+1. **CLI arguments** — flags passed at runtime
+2. **Environment variables** — prefixed with `DISTILL_`
+3. **Config file** — YAML/TOML file generated via `distill-align init`
+
+Generate a config file to get started:
+
+```bash
+distill-align init
+```
+
+> 📖 Full configuration reference: [docs/configuration.md](docs/configuration.md)
+
+### Quick Env-Only Setup
+
+```bash
+export DISTILL_LLM_PROVIDER=openai
+export DISTILL_LLM_MODEL=gpt-4o
+export DISTILL_LLM_API_KEY=sk-...
+export DISTILL_LOG_LEVEL=INFO
+```
+
+## Environment Variables (API Keys)
+
+| Variable                  | Required For      | Description                        |
+|---------------------------|-------------------|------------------------------------|
+| `OPENAI_API_KEY`          | OpenAI / Azure    | OpenAI API key                     |
+| `ANTHROPIC_API_KEY`       | Anthropic         | Anthropic API key                  |
+| `GOOGLE_API_KEY`          | Google Gemini     | Google AI Studio API key           |
+| `AZURE_OPENAI_API_KEY`    | Azure OpenAI      | Azure OpenAI resource key          |
+| `AZURE_OPENAI_ENDPOINT`   | Azure OpenAI      | Azure OpenAI endpoint URL          |
+| `DISTILL_LLM_API_KEY`     | Any provider      | Generic override (takes precedence) |
 
 ## Quick Start
 
