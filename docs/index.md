@@ -7,7 +7,7 @@ Generate high-quality fine-tuning datasets from raw domain data using frontier r
 <div class="grid cards" markdown>
 
 - :material-download: **Install** — `pip install distill-align`
-- :material-github: **Source** — [github.com/o69dn/Distill-Align](https://github.com/o69dn/Distill-Align)
+- :material-github: **Source** — [github.com/omargargoum/Distill-Align](https://github.com/omargargoum/Distill-Align)
 - :material-tag: **Version** — 0.1.1
 - :material-license: **License** — MIT
 
@@ -113,4 +113,4 @@ distill-align export --input conversations.json --format sharegpt --split
 
 ## License
 
-MIT License — see [LICENSE](https://github.com/o69dn/Distill-Align/blob/main/LICENSE) for details.
+MIT License — see [LICENSE](https://github.com/omargargoum/Distill-Align/blob/main/LICENSE) for details.

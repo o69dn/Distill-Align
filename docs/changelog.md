@@ -2,7 +2,7 @@
 
 All notable changes to Distill-Align are documented here.
 
-See also: [CHANGELOG.md](https://github.com/o69dn/Distill-Align/blob/main/CHANGELOG.md) on GitHub.
+See also: [CHANGELOG.md](https://github.com/omargargoum/Distill-Align/blob/main/CHANGELOG.md) on GitHub.
 
 ## [0.1.1] - 2026-06-18
 

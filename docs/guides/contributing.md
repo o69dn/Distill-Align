@@ -2,7 +2,7 @@
 
 Thank you for your interest in contributing to Distill-Align! This guide covers the development workflow, code style, and testing practices.
 
-> **Note**: Also see our [Contributor Covenant Code of Conduct](https://github.com/o69dn/Distill-Align/blob/main/CODE_OF_CONDUCT.md).
+> **Note**: Also see our [Contributor Covenant Code of Conduct](https://github.com/omargargoum/Distill-Align/blob/main/CODE_OF_CONDUCT.md).
 
 ## Development Setup
 
@@ -16,7 +16,7 @@ Thank you for your interest in contributing to Distill-Align! This guide covers 
 ### Clone and Install
 
 ```bash
-git clone https://github.com/o69dn/Distill-Align.git
+git clone https://github.com/omargargoum/Distill-Align.git
 cd Distill-Align
 poetry install
 ```

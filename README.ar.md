@@ -2,15 +2,15 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/o69dn/Distill-Align/actions/workflows/ci.yml/badge.svg)](https://github.com/o69dn/Distill-Align/actions/workflows/ci.yml)
+[![CI](https://github.com/omargargoum/Distill-Align/actions/workflows/ci.yml/badge.svg)](https://github.com/omargargoum/Distill-Align/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/distill-align.svg)](https://pypi.org/project/distill-align/)
-[![Security](https://github.com/o69dn/Distill-Align/actions/workflows/security-scan.yml/badge.svg)](https://github.com/o69dn/Distill-Align/actions/workflows/security-scan.yml)
+[![Security](https://github.com/omargargoum/Distill-Align/actions/workflows/security-scan.yml/badge.svg)](https://github.com/omargargoum/Distill-Align/actions/workflows/security-scan.yml)
 
 > **Distill-Align: مصنع الاستدلال المنظَّم**
 >
 > إطار عمل سطر أوامر / بايثون يُؤتمت عملية إنشاء مجموعات بيانات عالية الجودة لضبط النماذج اللغوية (fine-tuning) انطلاقًا من البيانات الخام. يستخدم نماذج الاستدلال المتطورة كمُعلّمين، ويلتقط آثار تفكيرهم العميق، ثم يُرشّحها ويُهذّبها إلى صيغ تعليمية منظمة ومناسبة لضبط النماذج.
 
-📖 **الوثائق الكاملة**: [o69dn.github.io/Distill-Align](https://o69dn.github.io/Distill-Align/)
+📖 **الوثائق الكاملة**: [omargargoum.github.io/Distill-Align](https://omargargoum.github.io/Distill-Align/)
 
 🌐 **English**: [README.md](README.md) — English version of this guide.
 

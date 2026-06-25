@@ -26,7 +26,7 @@ pip install distill-align[all]       # All optional dependencies
 ### From Source (Development)
 
 ```bash
-git clone https://github.com/o69dn/Distill-Align.git
+git clone https://github.com/omargargoum/Distill-Align.git
 cd Distill-Align
 poetry install --with dev
 ```
@@ -280,4 +280,4 @@ asyncio.run(main())
 - [CLI Reference](cli-reference.md) — All commands and flags
 - [Pipelines](pipelines/ingestion.md) — How each pipeline stage works
 - [Best Practices](guides/best-practices.md) — Tips for quality datasets
-- [Examples](https://github.com/o69dn/Distill-Align/tree/main/examples) — Runnable example scripts
+- [Examples](https://github.com/omargargoum/Distill-Align/tree/main/examples) — Runnable example scripts

@@ -7,7 +7,7 @@ readme = "README.md"
 license = "MIT"
 homepage = "https://github.com/o69dn/Distill-Align"
 repository = "https://github.com/o69dn/Distill-Align"
-documentation = "https://o69dn.github.io/Distill-Align/"
+documentation = "https://omargargoum.github.io/Distill-Align/"
 keywords = ["llm", "fine-tuning", "dataset", "distillation", "unsloth", "synthesis"]
 packages = [{include = "distill_align", from = "src"}]
 classifiers = [

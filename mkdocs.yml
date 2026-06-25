@@ -1,8 +1,8 @@
 site_name: Distill-Align
 site_description: "The Structured Reasoning Extraction Factory — Generate high-quality fine-tuning datasets from raw domain data"
-repo_url: https://github.com/o69dn/Distill-Align
-repo_name: o69dn/Distill-Align
-site_url: https://o69dn.github.io/Distill-Align/
+repo_url: https://github.com/omargargoum/Distill-Align
+repo_name: omargargoum/Distill-Align
+site_url: https://omargargoum.github.io/Distill-Align/
 
 theme:
   name: material
@@ -66,7 +66,7 @@ markdown_extensions:
 extra:
   social:
     - icon: fontawesome/brands/github
-      link: https://github.com/o69dn/Distill-Align
+      link: https://github.com/omargargoum/Distill-Align
     - icon: fontawesome/brands/python
       link: https://pypi.org/project/distill-align/
     - icon: fontawesome/solid/globe

@@ -319,6 +319,6 @@ for i, conv in enumerate(data[:3]):
 
 ## Getting Help
 
-- **GitHub Issues:** [github.com/o69dn/Distill-Align/issues](https://github.com/o69dn/Distill-Align/issues)
-- **Discussions:** [github.com/o69dn/Distill-Align/discussions](https://github.com/o69dn/Distill-Align/discussions)
+- **GitHub Issues:** [github.com/omargargoum/Distill-Align/issues](https://github.com/omargargoum/Distill-Align/issues)
+- **Discussions:** [github.com/omargargoum/Distill-Align/discussions](https://github.com/omargargoum/Distill-Align/discussions)
 - **Website:** [omar.com.ly](https://omar.com.ly/)

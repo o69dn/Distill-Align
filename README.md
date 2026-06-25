@@ -2,9 +2,9 @@
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![CI](https://github.com/o69dn/Distill-Align/actions/workflows/ci.yml/badge.svg)](https://github.com/o69dn/Distill-Align/actions/workflows/ci.yml)
+[![CI](https://github.com/omargargoum/Distill-Align/actions/workflows/ci.yml/badge.svg)](https://github.com/omargargoum/Distill-Align/actions/workflows/ci.yml)
 [![PyPI version](https://img.shields.io/pypi/v/distill-align.svg)](https://pypi.org/project/distill-align/)
-[![Security](https://github.com/o69dn/Distill-Align/actions/workflows/security-scan.yml/badge.svg)](https://github.com/o69dn/Distill-Align/actions/workflows/security-scan.yml)
+[![Security](https://github.com/omargargoum/Distill-Align/actions/workflows/security-scan.yml/badge.svg)](https://github.com/omargargoum/Distill-Align/actions/workflows/security-scan.yml)
 
 > **Distill-Align: The Structured Reasoning Extraction Factory**
 >
@@ -12,7 +12,7 @@
 
 🌐 **العربية**: [README.ar.md](README.ar.md) — الترجمة العربية لهذا الدليل.
 
-📖 **Full documentation**: [o69dn.github.io/Distill-Align](https://o69dn.github.io/Distill-Align/)
+📖 **Full documentation**: [omargargoum.github.io/Distill-Align](https://omargargoum.github.io/Distill-Align/)
 
 ---
 
