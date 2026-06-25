@@ -89,8 +89,8 @@ def list_names() -> list[str]:
 
 
 def list_select_choices() -> list[tuple[str, str]]:
-    """Return ``(value, label)`` pairs suitable for a TUI ``Select`` widget."""
-    return [(p.name, p.label) for p in list_all()]
+    """Return ``(display, value)`` pairs suitable for a TUI ``Select`` widget."""
+    return [(p.label, p.name) for p in list_all()]
 
 
 def clear_custom() -> None:
