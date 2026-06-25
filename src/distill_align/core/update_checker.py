@@ -46,7 +46,7 @@ def check_pypi_version() -> str | None:
         return None
 
     try:
-        latest = data["info"]["version"]
+        latest = str(data["info"]["version"])
     except (KeyError, TypeError):
         logger.debug("Update check failed: unexpected PyPI response format")
         return None
