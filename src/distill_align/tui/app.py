@@ -1096,8 +1096,7 @@ class DistillAlignApp(App):
         """Show update notification on the main thread."""
         log_view = self.query_one("#log-view", RichLog)
         log_view.write(
-            f"[yellow]⚠ Update available: v{__version__} → v{latest}. "
-            "Run: pip install --upgrade distill-align[/yellow]"
+            f"[yellow]⚠ Update available: v{__version__} → v{latest}. Run: pip install --upgrade distill-align[/yellow]"
         )
         self.notify(
             f"Update available: v{__version__} → v{latest}",

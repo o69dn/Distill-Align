@@ -84,6 +84,17 @@ export DISTILL_LOG_LEVEL=DEBUG
 export DISTILL_CACHE_DIR=/var/cache/distill-align
 ```
 
+### API Key Environment Variables
+
+| Variable                  | Required For      | Description                        |
+|---------------------------|-------------------|------------------------------------|
+| `OPENAI_API_KEY`          | OpenAI / Azure    | OpenAI API key                     |
+| `ANTHROPIC_API_KEY`       | Anthropic         | Anthropic API key                  |
+| `GOOGLE_API_KEY`          | Google Gemini     | Google AI Studio API key           |
+| `AZURE_OPENAI_API_KEY`    | Azure OpenAI      | Azure OpenAI resource key          |
+| `AZURE_OPENAI_ENDPOINT`   | Azure OpenAI      | Azure OpenAI endpoint URL          |
+| `DISTILL_LLM_API_KEY`     | Any provider      | Generic override (takes precedence) |
+
 ## CLI Override
 
 CLI arguments override config file settings:

@@ -48,6 +48,27 @@ Or use Docker Compose:
 docker compose run distill-align status
 ```
 
+### Package Management
+
+**Update:**
+
+```bash
+pip install --upgrade distill-align
+```
+
+**Uninstall:**
+
+```bash
+pip uninstall distill-align
+```
+
+**Verify Installation:**
+
+```bash
+distill-align --version
+distill-align --help
+```
+
 ## Quick Start (5 Steps)
 
 ### Step 1: Initialize a Config
