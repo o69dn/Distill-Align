@@ -1084,28 +1084,25 @@ class DistillAlignApp(App):
             log_view.write("[cyan]i[/cyan] Tabs: [yellow]0[/yellow]-[yellow]9[/yellow] to switch tabs")
 
         # Background update check (non-blocking, silent on failure)
-        self.run_worker(
-            self._check_update_worker,
-            thread=True,
-            result_callback=self._on_update_result,
-        )
+        self.run_worker(self._check_update_worker, thread=True)
 
-    def _check_update_worker(self) -> str | None:
-        """Worker thread: check PyPI for a newer version."""
-        return check_pypi_version()
-
-    def _on_update_result(self, latest: str | None) -> None:
-        """Called on the main thread with the update check result."""
+    def _check_update_worker(self) -> None:
+        """Worker thread: check PyPI for a newer version and notify if available."""
+        latest = check_pypi_version()
         if latest:
-            log_view = self.query_one("#log-view", RichLog)
-            log_view.write(
-                f"[yellow]⚠ Update available: v{__version__} → v{latest}. "
-                "Run: pip install --upgrade distill-align[/yellow]"
-            )
-            self.notify(
-                f"Update available: v{__version__} → v{latest}",
-                timeout=8,
-            )
+            self.call_from_thread(self._show_update_notification, latest)
+
+    def _show_update_notification(self, latest: str) -> None:
+        """Show update notification on the main thread."""
+        log_view = self.query_one("#log-view", RichLog)
+        log_view.write(
+            f"[yellow]⚠ Update available: v{__version__} → v{latest}. "
+            "Run: pip install --upgrade distill-align[/yellow]"
+        )
+        self.notify(
+            f"Update available: v{__version__} → v{latest}",
+            timeout=8,
+        )
 
     def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab."""
