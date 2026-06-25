@@ -12,6 +12,10 @@ Now with:
 - Export results table with file sizes
 - Auto-refresh of Jobs tab during active synthesis
 - Last-run summary on Dashboard
+- 🌱 Simple / 🧪 Expert mode toggle (press [m])
+- Quick-Start Wizard for first-time users
+- Keyboard shortcut help overlay (press [?])
+- Built-in pipeline templates for common tasks
 """
 
 import asyncio
@@ -50,6 +54,26 @@ from ..core.config_file import find_config_file, generate_default_config, load_c
 from ..core.json_utils import safe_json_load
 from ..core.update_checker import check_pypi_version
 from ..synthesis.models.base import BaseLLMClient
+from ..synthesis.models.registry import get as get_provider_info
+from ..synthesis.models.registry import list_select_choices
+
+# Simple/Expert mode system
+from .modes.base import (
+    BUILTIN_TEMPLATES,
+    MODE_EXPERT,
+    MODE_LABELS,
+    MODE_SIMPLE,
+    get_template,
+)
+from .widgets.help_overlay import HelpOverlay
+from .widgets.preflight import (
+    PreflightScreen,
+    preflight_export,
+    preflight_full_pipeline,
+    preflight_ingest,
+    preflight_synthesize,
+)
+from .widgets.wizard import QuickStartWizard
 
 # =============================================================================
 # Loguru → TUI Sink (live log forwarding)
@@ -144,6 +168,19 @@ class DashboardTab(Container):
         with Vertical():
             yield Label("📊 Pipeline Dashboard", classes="tab-title")
 
+            # ── Quick-Start / Templates (simple mode only) ──
+            with Vertical(classes="simple-only", id="quick-start-area"):
+                yield Static(
+                    "[bold]👋 Welcome to Distill-Align![/bold]\n"
+                    "Turn your documents into high-quality fine-tuning datasets. "
+                    "Select an option below to get started quickly.",
+                    classes="simple-help",
+                )
+                with Horizontal():
+                    yield Button("✨ Quick-Start Wizard", id="btn-wizard", variant="primary", classes="action-button")
+                    yield Button("📋 Load Template", id="btn-template", variant="default", classes="action-button")
+
+            # ── Stats row ──
             with Horizontal(id="stats-row"):
                 yield Static(self._stat_box("📦 Chunks", "0", "green"), id="stat-chunks", classes="stat-box")
                 yield Static(self._stat_box("💬 Conversations", "0", "blue"), id="stat-conv", classes="stat-box")
@@ -153,6 +190,14 @@ class DashboardTab(Container):
             yield ProgressBar(total=100, id="dashboard-progress", show_eta=True)
             yield Label("Stage: Idle", id="stage-label")
             yield Label("", id="dashboard-last-run")
+
+            # ── Tips (simple mode only) ──
+            with Vertical(classes="simple-only"):
+                yield Static(
+                    "[dim]💡 [/dim][bold]Tip:[/bold] Press [reverse] m [/reverse] to switch to [yellow]Expert mode[/yellow] "
+                    "for full control. Press [reverse] ? [/reverse] for keyboard shortcuts.",
+                    classes="tip-box",
+                )
 
             with Horizontal(id="system-info-row"):
                 yield Static("Loading...", id="system-info", classes="stat-box-wide")
@@ -262,6 +307,12 @@ class IngestTab(Container):
         with Vertical():
             yield Label("📥 Ingestion Pipeline", classes="tab-title")
 
+            # Simple-mode guidance
+            yield Static(
+                "Specify your source files and how to split them into chunks for processing.",
+                classes="simple-only simple-help",
+            )
+
             with Horizontal(classes="form-row"):
                 yield Label("Source path:", classes="form-label")
                 yield Input(placeholder="./data", id="ingest-source", classes="form-input")
@@ -273,14 +324,22 @@ class IngestTab(Container):
             with Horizontal(classes="form-row"):
                 yield Label("Chunk size:", classes="form-label")
                 yield Input(value="1000", id="ingest-chunk-size", classes="form-input-small")
-                yield Label("Overlap:", classes="form-label")
-                yield Input(value="200", id="ingest-overlap", classes="form-input-small")
+                # Overlap is expert-only
+                yield Label("Overlap:", classes="form-label expert-only")
+                yield Input(value="200", id="ingest-overlap", classes="form-input-small expert-only")
 
-            with Horizontal(classes="form-row"):
+            # Expert-only advanced options
+            with Horizontal(classes="form-row expert-only"):
                 yield Label("Recursive:", classes="form-label")
                 yield Switch(value=True, id="ingest-recursive")
                 yield Label("Auto-detect:", classes="form-label")
                 yield Switch(value=True, id="ingest-auto")
+
+            # Simple mode hint about advanced options
+            yield Static(
+                "[dim]💡 Press [reverse] m [/reverse] for expert options (overlap, recursive scanning, etc.)[/dim]",
+                classes="simple-only",
+            )
 
             yield Button("🚀 Run Ingestion", id="ingest-run", variant="primary")
             yield ProgressBar(total=100, id="ingest-progress", show_eta=False)
@@ -333,6 +392,12 @@ class SynthesizeTab(Container):
         with Vertical():
             yield Label("🧠 Synthesis Pipeline", classes="tab-title")
 
+            # Simple-mode guidance
+            yield Static(
+                "Generate structured conversations from your text chunks using an LLM.",
+                classes="simple-only simple-help",
+            )
+
             with Horizontal(classes="form-row"):
                 yield Label("Input chunks:", classes="form-label")
                 yield Input(value="./chunks.json", id="synth-input", classes="form-input")
@@ -344,7 +409,7 @@ class SynthesizeTab(Container):
             with Horizontal(classes="form-row"):
                 yield Label("Provider:", classes="form-label")
                 yield Select(
-                    [(p, p) for p in ["openai", "ollama", "vllm", "anthropic", "gemini", "azure"]],
+                    list_select_choices(),
                     value="openai",
                     id="synth-provider",
                     classes="form-select",
@@ -352,38 +417,46 @@ class SynthesizeTab(Container):
                 yield Label("Model:", classes="form-label")
                 yield Input(value="gpt-4o", id="synth-model", classes="form-input")
 
-            with Horizontal(classes="form-row"):
-                yield Label("Base URL:", classes="form-label")
-                yield Input(placeholder="(optional)", id="synth-base-url", classes="form-input")
+            # Simple mode: provider/model tip
+            yield Static(
+                "[dim]💡 Use [bold]gpt-4o-mini[/bold] for speed or [bold]ollama[/bold] with [bold]llama3.2[/bold] for free local generation.[/dim]",
+                classes="simple-only",
+            )
 
-            with Horizontal(classes="form-row"):
-                yield Label("Concurrency:", classes="form-label")
-                yield Input(value="5", id="synth-concurrency", classes="form-input-small")
-                yield Label("RPM:", classes="form-label")
-                yield Input(value="60", id="synth-rpm", classes="form-input-small")
-                yield Label("Max tokens:", classes="form-label")
-                yield Input(placeholder="(auto)", id="synth-max-tokens", classes="form-input-small")
+            # Expert-only advanced options
+            with Vertical(classes="expert-only"):
+                with Horizontal(classes="form-row"):
+                    yield Label("Base URL:", classes="form-label")
+                    yield Input(placeholder="(optional)", id="synth-base-url", classes="form-input")
 
-            with Horizontal(classes="form-row"):
-                yield Label("Mode:", classes="form-label")
-                yield Select(
-                    [(m, m) for m in ["default", "teach", "debug", "review", "qa", "explain"]],
-                    value="default",
-                    id="synth-mode",
-                    classes="form-select",
-                )
+                with Horizontal(classes="form-row"):
+                    yield Label("Concurrency:", classes="form-label")
+                    yield Input(value="5", id="synth-concurrency", classes="form-input-small")
+                    yield Label("RPM:", classes="form-label")
+                    yield Input(value="60", id="synth-rpm", classes="form-input-small")
+                    yield Label("Max tokens:", classes="form-label")
+                    yield Input(placeholder="(auto)", id="synth-max-tokens", classes="form-input-small")
 
-            with Horizontal(classes="form-row"):
-                yield Label("Job ID (resume):", classes="form-label")
-                yield Input(placeholder="(new job)", id="synth-job-id", classes="form-input")
+                with Horizontal(classes="form-row"):
+                    yield Label("Mode:", classes="form-label")
+                    yield Select(
+                        [(m, m) for m in ["default", "teach", "debug", "review", "qa", "explain"]],
+                        value="default",
+                        id="synth-mode",
+                        classes="form-select",
+                    )
 
-            with Horizontal(classes="form-row"):
-                yield Label("Judge:", classes="form-label")
-                yield Switch(value=False, id="synth-judge")
-                yield Label("Cache:", classes="form-label")
-                yield Switch(value=True, id="synth-cache")
-                yield Label("Checkpoint:", classes="form-label")
-                yield Switch(value=True, id="synth-checkpoint")
+                with Horizontal(classes="form-row"):
+                    yield Label("Job ID (resume):", classes="form-label")
+                    yield Input(placeholder="(new job)", id="synth-job-id", classes="form-input")
+
+                with Horizontal(classes="form-row"):
+                    yield Label("Judge:", classes="form-label")
+                    yield Switch(value=False, id="synth-judge")
+                    yield Label("Cache:", classes="form-label")
+                    yield Switch(value=True, id="synth-cache")
+                    yield Label("Checkpoint:", classes="form-label")
+                    yield Switch(value=True, id="synth-checkpoint")
 
             yield Button("🧠 Run Synthesis", id="synth-run", variant="primary")
             yield ProgressBar(total=100, id="synth-progress", show_eta=False)
@@ -446,6 +519,12 @@ class ExportTab(Container):
         with Vertical():
             yield Label("📤 Export Pipeline", classes="tab-title")
 
+            # Simple-mode guidance
+            yield Static(
+                "Export your conversations into fine-tuning formats like ShareGPT, Alpaca, or ChatML.",
+                classes="simple-only simple-help",
+            )
+
             with Horizontal(classes="form-row"):
                 yield Label("Input file:", classes="form-label")
                 yield Input(value="./conversations.json", id="export-input", classes="form-input")
@@ -454,7 +533,8 @@ class ExportTab(Container):
                 yield Label("Output dir:", classes="form-label")
                 yield Input(value="./output", id="export-output-dir", classes="form-input")
 
-            with Horizontal(classes="form-row"):
+            # Expert-only advanced
+            with Horizontal(classes="form-row expert-only"):
                 yield Label("Unsloth model:", classes="form-label")
                 yield Input(value="unsloth/Meta-Llama-3.1-8B-Instruct", id="export-unsloth-model", classes="form-input")
 
@@ -464,7 +544,8 @@ class ExportTab(Container):
                     yield Switch(value=(fmt == "sharegpt"), id=f"export-fmt-{fmt}")
                     yield Label(fmt, classes="form-label-small")
 
-            with Horizontal(classes="form-row"):
+            # Expert-only switches
+            with Horizontal(classes="form-row expert-only"):
                 yield Label("Unsloth script:", classes="form-label")
                 yield Switch(value=True, id="export-unsloth")
                 yield Label("Split:", classes="form-label")
@@ -549,6 +630,12 @@ class ValidateTab(Container):
         with Vertical():
             yield Label("🔍 Dataset Validation", classes="tab-title")
 
+            # Simple-mode guidance
+            yield Static(
+                "Check your dataset for issues, duplicates, and quality metrics before training.",
+                classes="simple-only simple-help",
+            )
+
             with Horizontal(classes="form-row"):
                 yield Label("Input file:", classes="form-label")
                 yield Input(value="./conversations.json", id="validate-input", classes="form-input")
@@ -602,21 +689,28 @@ class FullPipelineTab(Container):
         with Vertical():
             yield Label("⚡ Full Pipeline — Ingest → Synthesize → Export", classes="tab-title")
             yield Label(
-                "Configure all stages together and run them sequentially with one click.",
+                "Run the entire pipeline end-to-end with one click. "
+                "Simple mode shows only the essentials — switch to Expert for full control.",
                 id="full-help",
             )
 
             with Vertical(id="full-ingest-section"):
                 yield Label("[bold]📥 Ingestion[/bold]", classes="section-title")
+                # Simple-mode guidance
+                yield Static(
+                    "Point to your source files. We'll chunk them automatically.",
+                    classes="simple-only simple-help",
+                )
                 with Horizontal(classes="form-row"):
                     yield Label("Source path:", classes="form-label")
                     yield Input(placeholder="./data", id="full-source", classes="form-input")
-                with Horizontal(classes="form-row"):
+                # Expert-only ingestion controls
+                with Horizontal(classes="form-row expert-only"):
                     yield Label("Chunk size:", classes="form-label")
                     yield Input(value="1000", id="full-chunk-size", classes="form-input-small")
                     yield Label("Overlap:", classes="form-label")
                     yield Input(value="200", id="full-overlap", classes="form-input-small")
-                with Horizontal(classes="form-row"):
+                with Horizontal(classes="form-row expert-only"):
                     yield Label("Recursive:", classes="form-label")
                     yield Switch(value=True, id="full-recursive")
                     yield Label("Auto-detect:", classes="form-label")
@@ -624,22 +718,28 @@ class FullPipelineTab(Container):
 
             with Vertical(id="full-synth-section"):
                 yield Label("[bold]🧠 Synthesis[/bold]", classes="section-title")
+                # Simple-mode guidance
+                yield Static(
+                    "Choose your AI provider and model to generate conversations.",
+                    classes="simple-only simple-help",
+                )
                 with Horizontal(classes="form-row"):
                     yield Label("Provider:", classes="form-label")
                     yield Select(
-                        [(p, p) for p in ["openai", "ollama", "vllm", "anthropic", "gemini", "azure"]],
+                        list_select_choices(),
                         value="openai",
                         id="full-provider",
                         classes="form-select",
                     )
                     yield Label("Model:", classes="form-label")
                     yield Input(value="gpt-4o", id="full-model", classes="form-input")
-                with Horizontal(classes="form-row"):
+                # Expert-only synthesis controls
+                with Horizontal(classes="form-row expert-only"):
                     yield Label("Concurrency:", classes="form-label")
                     yield Input(value="5", id="full-concurrency", classes="form-input-small")
                     yield Label("RPM:", classes="form-label")
                     yield Input(value="60", id="full-rpm", classes="form-input-small")
-                with Horizontal(classes="form-row"):
+                with Horizontal(classes="form-row expert-only"):
                     yield Label("Mode:", classes="form-label")
                     yield Select(
                         [(m, m) for m in ["default", "teach", "debug", "review", "qa", "explain"]],
@@ -647,7 +747,7 @@ class FullPipelineTab(Container):
                         id="full-mode",
                         classes="form-select",
                     )
-                with Horizontal(classes="form-row"):
+                with Horizontal(classes="form-row expert-only"):
                     yield Label("Cache:", classes="form-label")
                     yield Switch(value=True, id="full-cache")
                     yield Label("Checkpoint:", classes="form-label")
@@ -655,6 +755,11 @@ class FullPipelineTab(Container):
 
             with Vertical(id="full-export-section"):
                 yield Label("[bold]📤 Export[/bold]", classes="section-title")
+                # Simple-mode guidance
+                yield Static(
+                    "Save your dataset in the format your training framework expects.",
+                    classes="simple-only simple-help",
+                )
                 with Horizontal(classes="form-row"):
                     yield Label("Output dir:", classes="form-label")
                     yield Input(value="./output", id="full-output-dir", classes="form-input")
@@ -669,8 +774,16 @@ class FullPipelineTab(Container):
                         id="full-format",
                         classes="form-select",
                     )
+                # Expert-only
+                with Horizontal(classes="form-row expert-only"):
                     yield Label("DS Card:", classes="form-label")
                     yield Switch(value=False, id="full-card")
+
+            # Simple mode: hint about expert options
+            yield Static(
+                "[dim]💡 Press [reverse] m [/reverse] for advanced options (chunk tuning, concurrency, mode selection, etc.)[/dim]",
+                classes="simple-only",
+            )
 
             yield Button("⚡ Run Full Pipeline", id="full-run", variant="primary")
             yield ProgressBar(total=100, id="full-progress", show_eta=True)
@@ -1021,11 +1134,51 @@ class DistillAlignApp(App):
         height: auto;
         max-height: 10;
     }
+
+    #mode-indicator {
+        width: auto;
+        padding: 0 1;
+        text-style: bold;
+    }
+
+    /* When app has simple-mode class, hide expert-only containers */
+    .simple-mode .expert-only {
+        display: none !important;
+    }
+
+    /* When app has expert-mode class, hide simple-only containers */
+    .expert-mode .simple-only {
+        display: none !important;
+    }
+
+    /* Guidance text visible only in simple mode */
+    .simple-help {
+        color: $text-muted;
+        padding: 0 1;
+        margin-bottom: 1;
+        text-style: italic;
+    }
+
+    /* Quick-start and template buttons */
+    .action-button {
+        min-width: 30;
+        margin: 1 2;
+    }
+
+    /* Tip box visible in simple mode */
+    .tip-box {
+        border: solid $success;
+        margin: 1 0;
+        padding: 1 1;
+        color: $text-muted;
+    }
     """
 
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("r", "refresh", "Refresh"),
+        Binding("m", "toggle_mode", "Mode"),
+        Binding("question", "show_help", "Help"),
         Binding("ctrl+c", "quit", "Quit"),
         Binding("1", "switch_tab('dashboard')", "Dashboard"),
         Binding("2", "switch_tab('ingest')", "Ingest"),
@@ -1067,7 +1220,10 @@ class DistillAlignApp(App):
     def on_mount(self) -> None:
         """Called when app starts."""
         self.title = "Distill-Align Dashboard"
-        self.sub_title = "Structured Reasoning Extraction Factory"
+
+        # Start in simple mode (CSS class drives visibility)
+        self.add_class("simple-mode")
+        self._update_mode_display()
 
         # Install loguru sink for live logs
         _install_loguru_sink(self)
@@ -1080,11 +1236,47 @@ class DistillAlignApp(App):
         if log_view:
             log_view.write("[green]✓[/green] Distill-Align TUI started")
             log_view.write(f"[cyan]i[/cyan] Working directory: {Path.cwd()}")
-            log_view.write("[cyan]i[/cyan] Press [yellow]q[/yellow] to quit, [yellow]r[/yellow] to refresh")
+            log_view.write("[cyan]i[/cyan] Press [yellow]m[/yellow] to toggle modes, [yellow]?[/yellow] for help")
             log_view.write("[cyan]i[/cyan] Tabs: [yellow]0[/yellow]-[yellow]9[/yellow] to switch tabs")
 
         # Background update check (non-blocking, silent on failure)
         self.run_worker(self._check_update_worker, thread=True)
+
+        # Load config file (also registers any custom providers)
+        try:
+            config_path = find_config_file()
+            if config_path:
+                cfg = load_config(config_path)
+                log_view = self.query_one("#log-view", RichLog)
+                if cfg.custom_providers:
+                    names = [p.name for p in cfg.custom_providers]
+                    log_view.write(f"[green]✓[/green] Loaded custom providers: {', '.join(names)}")
+        except Exception:
+            pass  # Non-fatal — providers are just not customised
+
+    def _update_mode_display(self) -> None:
+        """Update the header subtitle to show current mode."""
+        is_simple = self.has_class("simple-mode")
+        mode = MODE_SIMPLE if is_simple else MODE_EXPERT
+        self.sub_title = f"{MODE_LABELS[mode]}  |  Structured Reasoning Extraction Factory"
+
+    def action_toggle_mode(self) -> None:
+        """Toggle between Simple and Expert mode."""
+        if self.has_class("simple-mode"):
+            self.remove_class("simple-mode")
+            self.add_class("expert-mode")
+            self.notify("🧪 Switched to Expert mode — all controls visible", timeout=3)
+            logger.info("TUI switched to Expert mode")
+        else:
+            self.remove_class("expert-mode")
+            self.add_class("simple-mode")
+            self.notify("🌱 Switched to Simple mode — streamlined view", timeout=3)
+            logger.info("TUI switched to Simple mode")
+        self._update_mode_display()
+
+    def action_show_help(self) -> None:
+        """Show the keyboard shortcuts help overlay."""
+        self.push_screen(HelpOverlay())
 
     def _check_update_worker(self) -> None:
         """Worker thread: check PyPI for a newer version and notify if available."""
@@ -1137,6 +1329,15 @@ class DistillAlignApp(App):
         """Handle button presses across all tabs."""
         button_id = event.button.id
 
+        # --- Dashboard: Wizard / Template ---
+        if button_id == "btn-wizard":
+            self._launch_wizard()
+            return
+
+        if button_id == "btn-template":
+            self._show_template_picker()
+            return
+
         # --- Jobs Tab ---
         if button_id == "jobs-refresh":
             self.query_one(JobsTab).refresh_jobs()
@@ -1174,22 +1375,195 @@ class DistillAlignApp(App):
             self.query_one(ConfigTab).refresh_config()
             self.notify("Config reloaded")
 
-        # --- Pipeline Tabs ---
+        # --- Pipeline Tabs (with Pre-flight Checks) ---
         elif button_id == "ingest-run":
-            self._run_ingest()
+            self._run_ingest_with_preflight()
 
         elif button_id == "synth-run":
-            self._run_synthesize()
+            self._run_synthesize_with_preflight()
 
         elif button_id == "export-run":
-            self._run_export()
+            self._run_export_with_preflight()
 
         elif button_id == "validate-run":
-            self._run_validate()
+            self._run_validate()  # No pre-flight needed for validate
 
         # --- Full Pipeline Tab ---
         elif button_id == "full-run":
-            self._run_full_pipeline()
+            self._run_full_pipeline_with_preflight()
+
+    # =========================================================================
+    # Wizard & Templates
+    # =========================================================================
+
+    def _launch_wizard(self) -> None:
+        """Launch the Quick-Start Wizard as a modal screen."""
+        logger.info("Launching Quick-Start Wizard")
+
+        async def on_wizard_done(result: dict[str, Any] | None) -> None:
+            if result is None:
+                logger.info("Wizard cancelled")
+                return
+
+            logger.info(f"Wizard completed: {result}")
+
+            # Build config from wizard result
+            from .widgets.wizard import wizard_result_to_full_config
+
+            config = wizard_result_to_full_config(result)
+            if not config:
+                self.notify("Wizard: could not build config", severity="warning")
+                return
+
+            # Pre-fill the Full Pipeline tab with wizard values
+            try:
+                full_tab = self.query_one(FullPipelineTab)
+                full_tab.query_one("#full-source", Input).value = config.get("source", "./data")
+                full_tab.query_one("#full-provider", Select).value = config.get("provider", "openai")
+                full_tab.query_one("#full-model", Input).value = config.get("model", "gpt-4o-mini")
+                full_tab.query_one("#full-output-dir", Input).value = config.get("output_dir", "./output")
+                full_tab.query_one("#full-format", Select).value = config.get("format", "sharegpt")
+
+                # If template specifies advanced options, pre-fill those too
+                if "chunk_size" in config:
+                    full_tab.query_one("#full-chunk-size", Input).value = str(config["chunk_size"])
+                if "overlap" in config:
+                    full_tab.query_one("#full-overlap", Input).value = str(config["overlap"])
+                if "concurrency" in config:
+                    full_tab.query_one("#full-concurrency", Input).value = str(config["concurrency"])
+                if "rpm" in config:
+                    full_tab.query_one("#full-rpm", Input).value = str(config["rpm"])
+                if "mode" in config:
+                    full_tab.query_one("#full-mode", Select).value = config["mode"]
+
+                # Switch to Full Pipeline tab
+                self.query_one(TabbedContent).active = "full-pipeline"
+                self.notify(
+                    "✨ Wizard complete! Settings applied to Full Pipeline tab. Review and click run!",
+                    timeout=5,
+                )
+                logger.info(f"Wizard pre-filled Full Pipeline tab with: {config}")
+            except Exception as e:
+                logger.error(f"Failed to pre-fill wizard config: {e}")
+                self.notify(f"Wizard error: {e}", severity="error")
+
+        self.push_screen(QuickStartWizard(), on_wizard_done)
+
+    def _show_template_picker(self) -> None:
+        """Show a picker of built-in templates and apply the selected one."""
+        from textual.screen import ModalScreen
+
+        class TemplatePicker(ModalScreen[dict[str, Any] | None]):
+            """Modal that lists all built-in templates for selection."""
+
+            CSS = """
+            TemplatePicker {
+                align: center middle;
+            }
+
+            #picker-box {
+                width: 70;
+                height: auto;
+                max-height: 80%;
+                padding: 1 2;
+                border: thick $accent;
+                background: $background;
+            }
+
+            .tmpl-item {
+                height: auto;
+                padding: 0 1;
+                margin: 0 0 0 0;
+            }
+
+            .tmpl-item:hover {
+                background: $surface;
+            }
+
+            .tmpl-name {
+                text-style: bold;
+            }
+
+            .tmpl-desc {
+                color: $text-muted;
+                padding-left: 3;
+            }
+
+            #picker-title {
+                text-style: bold;
+                color: $accent;
+                margin-bottom: 1;
+            }
+
+            #picker-actions {
+                margin-top: 1;
+                align: center middle;
+            }
+            """
+
+            def compose(self) -> ComposeResult:
+                with Vertical(id="picker-box"):
+                    yield Label("📋 Choose a Pipeline Template", id="picker-title")
+                    yield Static("Pick a preset below. It will pre-fill the Full Pipeline tab with sensible defaults.")
+                    for t in BUILTIN_TEMPLATES:
+                        with Vertical(classes="tmpl-item"):
+                            yield Button(
+                                f"{t.icon} {t.name}",
+                                id=f"tmpl-{t.name}",
+                                variant="default",
+                            )
+                            yield Static(t.description, classes="tmpl-desc")
+                    with Horizontal(id="picker-actions"):
+                        yield Button("Cancel", id="picker-cancel", variant="error")
+
+            def on_button_pressed(self, event: Button.Pressed) -> None:
+                if event.button.id == "picker-cancel":
+                    self.dismiss(None)
+                    return
+                if event.button.id and event.button.id.startswith("tmpl-"):
+                    name = event.button.id[len("tmpl-") :]
+                    tmpl = get_template(name)
+                    if tmpl:
+                        self.dismiss(tmpl.config)
+                    else:
+                        self.dismiss(None)
+
+        def on_pick(result: dict[str, Any] | None) -> None:
+            if result is None:
+                return
+            try:
+                full_tab = self.query_one(FullPipelineTab)
+                if "source" not in result:
+                    result["source"] = full_tab.query_one("#full-source", Input).value or "./data"
+                full_tab.query_one("#full-source", Input).value = result.get("source", "./data")
+                if "chunk_size" in result:
+                    full_tab.query_one("#full-chunk-size", Input).value = str(result["chunk_size"])
+                if "overlap" in result:
+                    full_tab.query_one("#full-overlap", Input).value = str(result["overlap"])
+                full_tab.query_one("#full-provider", Select).value = result.get("provider", "openai")
+                full_tab.query_one("#full-model", Input).value = result.get("model", "gpt-4o")
+                if "concurrency" in result:
+                    full_tab.query_one("#full-concurrency", Input).value = str(result["concurrency"])
+                if "rpm" in result:
+                    full_tab.query_one("#full-rpm", Input).value = str(result["rpm"])
+                if "mode" in result:
+                    full_tab.query_one("#full-mode", Select).value = result["mode"]
+                if "format" in result:
+                    full_tab.query_one("#full-format", Select).value = result["format"]
+                full_tab.query_one("#full-output-dir", Input).value = result.get("output_dir", "./output")
+                if "judge" in result:
+                    full_tab.query_one("#full-cache", Switch).value = result.get("cache", True)
+                    full_tab.query_one("#full-checkpoint", Switch).value = result.get("checkpoint", True)
+                if "card" in result:
+                    full_tab.query_one("#full-card", Switch).value = result["card"]
+
+                self.query_one(TabbedContent).active = "full-pipeline"
+                self.notify("📋 Template applied! Review the settings and run.", timeout=4)
+            except Exception as e:
+                logger.error(f"Failed to apply template: {e}")
+                self.notify(f"Template error: {e}", severity="error")
+
+        self.push_screen(TemplatePicker(), on_pick)
 
     # =========================================================================
     # Jobs Actions
@@ -1297,6 +1671,111 @@ class DistillAlignApp(App):
         """Auto-refresh jobs table (called periodically during active synthesis)."""
         with contextlib.suppress(Exception):
             self.query_one(JobsTab).refresh_jobs()
+
+    # =========================================================================
+    # Pre-flight Check Wrappers (intercept Run buttons)
+    # =========================================================================
+
+    def _run_ingest_with_preflight(self) -> None:
+        """Run pre-flight checks before starting ingestion."""
+        tab = self.query_one(IngestTab)
+        err = tab.validate_config()
+        if err:
+            self.notify(err, severity="warning")
+            return
+
+        config = tab.get_config()
+        report = preflight_ingest(
+            source=config["source"],
+            output=config["output"],
+            chunk_size=config["chunk_size"],
+        )
+
+        def on_result(proceed: bool) -> None:
+            if proceed:
+                logger.info("Pre-flight passed — starting ingestion")
+                self._run_ingest()
+            else:
+                logger.info("Pre-flight check cancelled ingestion")
+
+        self.push_screen(PreflightScreen(report, "Ingestion"), on_result)
+
+    def _run_synthesize_with_preflight(self) -> None:
+        """Run pre-flight checks before starting synthesis."""
+        tab = self.query_one(SynthesizeTab)
+        err = tab.validate_config()
+        if err:
+            self.notify(err, severity="warning")
+            return
+
+        config = tab.get_config()
+        report = preflight_synthesize(
+            input_path=config["input"],
+            output=config["output"],
+            provider=config["provider"],
+            concurrency=config["concurrency"],
+            mode=config["mode"],
+        )
+
+        def on_result(proceed: bool) -> None:
+            if proceed:
+                logger.info("Pre-flight passed — starting synthesis")
+                self._run_synthesize()
+            else:
+                logger.info("Pre-flight check cancelled synthesis")
+
+        self.push_screen(PreflightScreen(report, "Synthesis"), on_result)
+
+    def _run_export_with_preflight(self) -> None:
+        """Run pre-flight checks before starting export."""
+        tab = self.query_one(ExportTab)
+        err = tab.validate_config()
+        if err:
+            self.notify(err, severity="warning")
+            return
+
+        config = tab.get_config()
+        report = preflight_export(
+            input_path=config["input"],
+            output_dir=config["output_dir"],
+            formats=config["formats"],
+        )
+
+        def on_result(proceed: bool) -> None:
+            if proceed:
+                logger.info("Pre-flight passed — starting export")
+                self._run_export()
+            else:
+                logger.info("Pre-flight check cancelled export")
+
+        self.push_screen(PreflightScreen(report, "Export"), on_result)
+
+    def _run_full_pipeline_with_preflight(self) -> None:
+        """Run pre-flight checks before starting the full pipeline."""
+        tab = self.query_one(FullPipelineTab)
+        err = tab.validate_config()
+        if err:
+            self.notify(err, severity="warning")
+            return
+
+        config = tab.get_config()
+        report = preflight_full_pipeline(
+            source=config["source"],
+            provider=config["provider"],
+            model=config["model"],
+            output_dir=config["output_dir"],
+            chunk_size=config["chunk_size"],
+            concurrency=config["concurrency"],
+        )
+
+        def on_result(proceed: bool) -> None:
+            if proceed:
+                logger.info("Pre-flight passed — starting full pipeline")
+                self._run_full_pipeline()
+            else:
+                logger.info("Pre-flight check cancelled full pipeline")
+
+        self.push_screen(PreflightScreen(report, "Full Pipeline"), on_result)
 
     # =========================================================================
     # Pipeline: Ingest
@@ -1520,13 +1999,22 @@ class DistillAlignApp(App):
                 cache = None if not config["cache"] else CMCache(cache_dir=".cache")
                 cp = None if not config["checkpoint"] else CPCheckpoint()
 
+                # Resolve API key from environment variables (not exposed in TUI form)
+                resolved_api_key: str | None = None
+                provider_lower = config["provider"]
+                provider_info = get_provider_info(provider_lower)
+                if provider_info:
+                    for env_var in provider_info.env_vars:
+                        val = os.getenv(env_var)
+                        if val:
+                            resolved_api_key = val
+                            break
+
                 synth_config = SynthCfg(
-                    llm_provider=cast(
-                        Literal["openai", "ollama", "vllm", "anthropic", "gemini", "azure"],
-                        config["provider"],
-                    ),
+                    llm_provider=config["provider"],
                     model_name=config["model"],
                     base_url=config["base_url"],
+                    api_key=resolved_api_key,
                     max_concurrency=config["concurrency"],
                     max_rpm=config["rpm"],
                     max_tokens=config["max_tokens"],

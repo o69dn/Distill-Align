@@ -26,13 +26,9 @@ from ..core.schemas import (
     SynthesizedTurn,
 )
 from .judge import ConversationJudge
-from .models.anthropic import AnthropicClient
-from .models.azure import AzureClient
 from .models.base import BaseLLMClient
-from .models.gemini import GeminiClient
-from .models.ollama import OllamaClient
-from .models.openai import OpenAIClient
-from .models.vllm import VLLMClient
+from .models.registry import get as get_provider_info
+from .models.registry import list_names as list_provider_names
 from .prompts.scaffold import SCAFFOLD_SYSTEM_PROMPT, render_scaffold_prompt
 from .prompts.socratic import SOCRATIC_SYSTEM_PROMPT, render_socratic_prompt
 from .pruner import ContentPruner
@@ -71,8 +67,61 @@ class SynthesisPipeline:
         # Cost tracking
         self._tokenizer = Tokenizer(model=self.config.model_name)
 
+    @staticmethod
+    def _client_for_format(
+        api_format: str,
+        *,
+        base_url: str,
+        api_key: str | None,
+        model: str,
+    ) -> BaseLLMClient:
+        """Build a client for the given ``api_format``.
+
+        Args:
+            api_format: The wire-protocol family (``"openai"``, ``"anthropic"``,
+                ``"ollama"``, ``"vllm"``, ``"gemini"``).
+            base_url: API base URL.
+            api_key: API key (may be ``None`` for local providers).
+            model: Model name.
+
+        Returns:
+            A new LLM client instance.
+
+        Raises:
+            SynthesisError: If ``api_format`` is unknown.
+        """
+        # Local imports to avoid circular dependencies and keep startup fast.
+        from .models.anthropic import AnthropicClient
+        from .models.azure import AzureClient
+        from .models.gemini import GeminiClient
+        from .models.ollama import OllamaClient
+        from .models.openai import OpenAIClient
+        from .models.vllm import VLLMClient
+
+        _format_clients: dict[str, type[BaseLLMClient]] = {
+            "openai": OpenAIClient,
+            "anthropic": AnthropicClient,
+            "ollama": OllamaClient,
+            "vllm": VLLMClient,
+            "gemini": GeminiClient,
+            "azure": AzureClient,
+        }
+        client_cls = _format_clients.get(api_format)
+        if client_cls is None:
+            raise SynthesisError(f"Unknown API format: {api_format}")
+
+        # Some local clients (ollama, vllm) don't require an API key.
+        kwargs: dict[str, str | None] = {"base_url": base_url, "model": model}
+        if api_key is not None or api_format not in ("ollama", "vllm"):
+            kwargs["api_key"] = api_key
+
+        return client_cls(**kwargs)  # type: ignore[arg-type]
+
     def _build_client(self, model_name: str | None = None) -> BaseLLMClient:
         """Build an LLM client for the configured provider.
+
+        Looks up the provider in the registry to determine the ``api_format``
+        and default base URL, then delegates to :meth:`_client_for_format`.
 
         Args:
             model_name: Optional model override. Defaults to config model_name.
@@ -86,42 +135,16 @@ class SynthesisPipeline:
         model = model_name or self.config.model_name
         provider = self.config.llm_provider
 
-        if provider == "openai":
-            return OpenAIClient(
-                base_url=self.config.base_url or "https://api.openai.com/v1",
-                api_key=self.config.api_key,
-                model=model,
-            )
-        elif provider == "ollama":
-            return OllamaClient(
-                base_url=self.config.base_url or "http://localhost:11434",
-                model=model,
-            )
-        elif provider == "vllm":
-            return VLLMClient(
-                base_url=self.config.base_url or "http://localhost:8000/v1",
-                model=model,
-            )
-        elif provider == "anthropic":
-            return AnthropicClient(
-                base_url=self.config.base_url or "https://api.anthropic.com/v1",
-                api_key=self.config.api_key,
-                model=model,
-            )
-        elif provider == "gemini":
-            return GeminiClient(
-                base_url=self.config.base_url or "https://generativelanguage.googleapis.com/v1beta",
-                api_key=self.config.api_key,
-                model=model,
-            )
-        elif provider == "azure":
-            return AzureClient(
-                base_url=self.config.base_url or "https://api.openai.azure.com",
-                api_key=self.config.api_key,
-                model=model,
-            )
-        else:
-            raise SynthesisError(f"Unknown provider: {provider}")
+        info = get_provider_info(provider)
+        if info is None:
+            raise SynthesisError(f"Unknown provider: {provider!r}. Available: {', '.join(list_provider_names())}")
+
+        return self._client_for_format(
+            info.api_format,
+            base_url=self.config.base_url or info.default_base_url,
+            api_key=self.config.api_key,
+            model=model,
+        )
 
     def _get_client(self) -> BaseLLMClient | CostTrackingClient:
         """Get or create the LLM client."""

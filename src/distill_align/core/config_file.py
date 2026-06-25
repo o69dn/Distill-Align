@@ -10,6 +10,33 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 
+class CustomProviderDef(BaseModel):
+    """Definition of a custom LLM provider from the config file.
+
+    Attributes:
+        name: Internal key (e.g. ``"groq"``).  Used as the provider value.
+        label: Human-readable display name (e.g. ``"Groq"``).
+        api_format: Wire-protocol family: ``"openai"``, ``"anthropic"``,
+            ``"ollama"``, ``"vllm"``, or ``"gemini"``.
+        env_vars: Environment variable(s) to check for an API key.
+        default_base_url: Base URL when none is explicitly given.
+        default_model: Model name to pre-fill in forms.
+        requires_api_key: Whether the provider needs an API key.
+        concurrency_limit: Suggested max concurrency.
+        rpm_limit: Suggested max requests per minute.
+    """
+
+    name: str
+    label: str = ""
+    api_format: str = "openai"
+    env_vars: list[str] = Field(default_factory=list)
+    default_base_url: str = ""
+    default_model: str = ""
+    requires_api_key: bool = True
+    concurrency_limit: int = 10
+    rpm_limit: int = 60
+
+
 class ProjectConfig(BaseModel):
     """Project-level configuration."""
 
@@ -85,6 +112,7 @@ class DistillAlignConfig(BaseModel):
     ingestion: IngestionFileConfig = Field(default_factory=IngestionFileConfig)
     synthesis: SynthesisFileConfig = Field(default_factory=SynthesisFileConfig)
     export: ExportFileConfig = Field(default_factory=ExportFileConfig)
+    custom_providers: list[CustomProviderDef] = Field(default_factory=list)
     log_level: str = "INFO"
     cache_dir: str = ".cache"
 
@@ -140,6 +168,17 @@ export:
     num_epochs: 3
     learning_rate: 0.0002
 
+	# Custom providers (optional)
+# Add any OpenAI-compatible, Anthropic-compatible, or other API providers:
+# custom_providers:
+#   - name: groq
+#     label: Groq
+#     api_format: openai
+#     env_vars:
+#       - GROQ_API_KEY
+#     default_base_url: https://api.groq.com/openai/v1
+#     default_model: llama-3.3-70b-versatile
+
 log_level: INFO
 cache_dir: .cache
 """
@@ -176,6 +215,43 @@ def find_config_file(start_dir: str | Path = ".") -> Path | None:
                 return path
 
     return None
+
+
+def load_custom_providers(config: DistillAlignConfig) -> None:
+    """Register custom providers defined in the config file into the registry.
+
+    Clears previously-registered custom providers first, then re-registers
+    all built-in providers (a no-op if already registered), followed by
+    each custom provider from the config.
+
+    This is safe to call multiple times (e.g. on config reload).
+    """
+    from ..synthesis.models.registry import (
+        ProviderInfo,
+        clear_custom,
+        register,
+        register_builtins,
+    )
+
+    clear_custom()
+    register_builtins()  # Re-assert built-ins (idempotent)
+
+    for cp in config.custom_providers:
+        register(
+            ProviderInfo(
+                name=cp.name,
+                label=cp.label or cp.name.title(),
+                api_format=cp.api_format,
+                env_vars=cp.env_vars,
+                default_base_url=cp.default_base_url,
+                default_model=cp.default_model,
+                is_builtin=False,
+                requires_api_key=cp.requires_api_key,
+                concurrency_limit=cp.concurrency_limit,
+                rpm_limit=cp.rpm_limit,
+            )
+        )
+        logger.debug(f"Registered custom provider: {cp.name} ({cp.api_format})")
 
 
 def load_config(config_path: str | Path | None = None) -> DistillAlignConfig:
@@ -223,9 +299,13 @@ def load_config(config_path: str | Path | None = None) -> DistillAlignConfig:
             data = yaml.safe_load(f)
 
     if data is None:
-        return DistillAlignConfig()
+        config = DistillAlignConfig()
+        load_custom_providers(config)
+        return config
 
-    return DistillAlignConfig(**data)
+    config = DistillAlignConfig(**data)
+    load_custom_providers(config)
+    return config
 
 
 def save_config(config: DistillAlignConfig, path: str | Path = "distill-align.yaml") -> Path:

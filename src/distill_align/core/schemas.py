@@ -155,7 +155,7 @@ class IngestionConfig(BaseModel):
 class SynthesisConfig(BaseModel):
     """Configuration for the synthesis pipeline."""
 
-    llm_provider: Literal["openai", "ollama", "vllm", "anthropic", "gemini", "azure"] = "openai"
+    llm_provider: str = "openai"
     model_name: str = "gpt-4o"
     base_url: str | None = None
     api_key: str | None = None

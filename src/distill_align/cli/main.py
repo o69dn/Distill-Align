@@ -75,6 +75,16 @@ def main(
     except Exception:
         pass  # never crash the CLI
 
+    # Load custom providers from config file (if any)
+    try:
+        from ..core.config_file import find_config_file, load_config
+
+        cfg_path = find_config_file()
+        if cfg_path:
+            load_config(cfg_path)  # load_config internally registers custom providers
+    except Exception:
+        pass  # Non-fatal
+
 
 @app.command()
 def ingest(
@@ -206,7 +216,7 @@ def synthesize(
     checkpoint = None if no_checkpoint else CheckpointManager()
 
     config = SynthesisConfig(
-        llm_provider=cast(Literal["openai", "ollama", "vllm", "anthropic", "gemini", "azure"], provider),
+        llm_provider=provider,
         model_name=model,
         base_url=base_url,
         api_key=api_key,
