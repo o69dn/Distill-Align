@@ -15,6 +15,7 @@ Now with:
 """
 
 import asyncio
+import contextlib
 import json
 import os
 import sys
@@ -46,6 +47,7 @@ from ..core.cache import CacheManager
 from ..core.checkpoint import CheckpointManager
 from ..core.config_file import find_config_file, generate_default_config, load_config
 from ..core.json_utils import safe_json_load
+from ..synthesis.models.base import BaseLLMClient
 
 # =============================================================================
 # Loguru → TUI Sink (live log forwarding)
@@ -229,10 +231,8 @@ class DashboardTab(Container):
 
     def update_stage(self, stage: str) -> None:
         """Update the pipeline stage label."""
-        try:
+        with contextlib.suppress(Exception):
             self.query_one("#stage-label", Label).update(f"Stage: {stage}")
-        except Exception:
-            pass
 
     def update_progress(self, current: int, total: int) -> None:
         """Update the progress bar."""
@@ -244,10 +244,8 @@ class DashboardTab(Container):
 
     def show_last_run(self, text: str) -> None:
         """Show last pipeline run summary."""
-        try:
+        with contextlib.suppress(Exception):
             self.query_one("#dashboard-last-run", Label).update(text)
-        except Exception:
-            pass
 
 
 # =============================================================================
@@ -1085,10 +1083,8 @@ class DistillAlignApp(App):
 
     def action_switch_tab(self, tab_id: str) -> None:
         """Switch to a specific tab."""
-        try:
+        with contextlib.suppress(Exception):
             self.query_one(TabbedContent).active = tab_id
-        except Exception:
-            pass
 
     def _refresh_callback(self) -> None:
         """Periodic auto-refresh of stats."""
@@ -1109,15 +1105,11 @@ class DistillAlignApp(App):
         except Exception as e:
             self.notify(f"Refresh error: {e}", severity="error")
 
-        try:
+        with contextlib.suppress(Exception):
             self.query_one(JobsTab).refresh_jobs()
-        except Exception:
-            pass
 
-        try:
+        with contextlib.suppress(Exception):
             self.query_one(ConfigTab).refresh_config()
-        except Exception:
-            pass
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Handle button presses across all tabs."""
@@ -1248,7 +1240,7 @@ class DistillAlignApp(App):
         """Initialize a default config file."""
         try:
             output = generate_default_config(project_name="my-dataset")
-            self.notify(f"Created config: {output}", severity="success")
+            self.notify(f"Created config: {output}", severity="information")
             logger.info(f"Generated config file: {output}")
             self.query_one(ConfigTab).refresh_config()
         except Exception as e:
@@ -1272,10 +1264,8 @@ class DistillAlignApp(App):
     def _set_last_run(self, summary: str) -> None:
         """Record and display the last pipeline run summary."""
         self._last_run_summary = summary
-        try:
+        with contextlib.suppress(Exception):
             self.query_one(DashboardTab).show_last_run(f"[dim]Last run:[/dim] {summary}")
-        except Exception:
-            pass
 
     def _start_jobs_auto_refresh(self) -> None:
         """Start auto-refreshing the Jobs tab."""
@@ -1283,10 +1273,8 @@ class DistillAlignApp(App):
 
     def _jobs_auto_refresh_cb(self) -> None:
         """Auto-refresh jobs table (called periodically during active synthesis)."""
-        try:
+        with contextlib.suppress(Exception):
             self.query_one(JobsTab).refresh_jobs()
-        except Exception:
-            pass
 
     # =========================================================================
     # Pipeline: Ingest
@@ -1307,6 +1295,7 @@ class DistillAlignApp(App):
         Returns the output file path if successful, or None on error.
         When *silent* is False, operates on the IngestTab UI.
         """
+        ingest_tab: IngestTab | None = None
         if not silent:
             ingest_tab = self.query_one(IngestTab)
             config = ingest_tab.get_config()
@@ -1328,7 +1317,6 @@ class DistillAlignApp(App):
                 return None
 
         source_path = Path(config["source"])
-        ingest_tab = None if silent else self.query_one(IngestTab)
         output_path = Path(config["output"])
 
         # Use an event to synchronize the worker result
@@ -1364,7 +1352,7 @@ class DistillAlignApp(App):
                 else:
                     if config["auto_detect"] and hasattr(pipeline, "ingest_directory"):
                         chunks = pipeline.ingest_directory(
-                            source_path, recursive=config["recursive"], progress_callback=progress_cb
+                            source_path, recursive=config["recursive"]
                         )
                     else:
                         chunks = pipeline.ingest_directory(source_path, recursive=config["recursive"])
@@ -1416,12 +1404,10 @@ class DistillAlignApp(App):
         tab = self.query_one(IngestTab)
         tab.set_running(False)
         tab.set_status(f"[green]✓ Done[/green] — {count} chunks → {output_path}")
-        self.notify(f"Ingestion complete: {count} chunks", severity="success")
+        self.notify(f"Ingestion complete: {count} chunks", severity="information")
         self._set_last_run(f"Ingest: {count} chunks → {output_path}")
-        try:
+        with contextlib.suppress(Exception):
             self.query_one(DashboardTab).refresh_file_stats()
-        except Exception:
-            pass
 
     def _ingest_error(self, error: str) -> None:
         """Called when ingestion fails."""
@@ -1542,7 +1528,7 @@ class DistillAlignApp(App):
 
                     if use_builder:
                         builder = ConversationBuilder()
-                        client = pipeline._get_client()
+                        client = cast(BaseLLMClient, pipeline._get_client())
                         mode_enum = ConversationMode(config["mode"])
                         return await builder.build_batch(
                             chunks, mode_enum, client, max_concurrency=config["concurrency"]
@@ -1619,7 +1605,7 @@ class DistillAlignApp(App):
         tab.set_running(False)
         tab.set_status(f"[green]✓ Done[/green] — {summary}")
         logger.info(f"Synthesis complete: {summary}")
-        self.notify("Synthesis complete!", severity="success")
+        self.notify("Synthesis complete!", severity="information")
         self._set_last_run(f"Synthesis: {summary}")
 
         if cost_report:
@@ -1640,10 +1626,8 @@ class DistillAlignApp(App):
             except Exception:
                 pass
 
-        try:
+        with contextlib.suppress(Exception):
             self.query_one(DashboardTab).refresh_file_stats()
-        except Exception:
-            pass
 
     def _synth_error(self, error: str) -> None:
         """Called when synthesis fails."""
@@ -1768,7 +1752,7 @@ class DistillAlignApp(App):
         tab.set_running(False)
         tab.set_status(f"[green]✓ Done[/green] — exported {count} conversations")
         tab.show_results(output_files)
-        self.notify(f"Export complete: {count} conversations", severity="success")
+        self.notify(f"Export complete: {count} conversations", severity="information")
 
         lines = []
         for fmt, path in output_files.items():
@@ -1842,7 +1826,7 @@ class DistillAlignApp(App):
         valid_str = "[green]✓ Valid[/green]" if report.is_valid else "[red]✗ Issues found[/red]"
         tab.set_status(f"[green]✓ Done[/green] — {valid_str}")
         logger.info("Validation complete")
-        self.notify("Validation complete", severity="success")
+        self.notify("Validation complete", severity="information")
         self._notify_dashboard("Validation complete", 100, 100)
         self._set_last_run(f"Validation: {'Valid' if report.is_valid else 'Issues found'}")
 
@@ -1951,10 +1935,8 @@ class DistillAlignApp(App):
             full_tab.set_status("[red]✗ Full Pipeline failed at Synthesize stage[/red]")
             logger.error("Full Pipeline — Synthesize step failed")
             # Cleanup chunks
-            try:
+            with contextlib.suppress(Exception):
                 Path(chunks_path).unlink(missing_ok=True)
-            except Exception:
-                pass
             return
 
         # Step 3: Export
@@ -1998,12 +1980,10 @@ class DistillAlignApp(App):
         log_view.write("[bold cyan]⚡ Full Pipeline finished successfully![/bold cyan]")
         logger.info("Full Pipeline — All stages complete!")
 
-        try:
+        with contextlib.suppress(Exception):
             self.query_one(DashboardTab).refresh_file_stats()
-        except Exception:
-            pass
 
-        self.notify("Full Pipeline complete!", severity="success")
+        self.notify("Full Pipeline complete!", severity="information")
 
 
 if __name__ == "__main__":
